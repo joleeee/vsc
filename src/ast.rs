@@ -1,4 +1,6 @@
 mod types;
+use std::collections::VecDeque;
+
 pub use types::*;
 
 // parse identifier or identifier with data
@@ -20,8 +22,10 @@ pub fn parse_identifier(input: &str) -> (String, Option<String>) {
 pub fn parse() {
     let symbols = std::fs::read_to_string("locals.symbols").unwrap();
 
-    let ast = symbols.split(" == BOUND SYNTAX TREE ==\n").last().unwrap();
+    let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
     let ast = ast.split("\n").map(|x| x.trim_end()).collect::<Vec<&str>>();
+
+    let mut symbols = VecDeque::new();
 
     for line in ast {
         let indent = line.chars().take_while(|x| *x == ' ').count();
@@ -34,6 +38,45 @@ pub fn parse() {
             .map(parse_identifier)
             .collect::<Vec<_>>();
 
-        dbg!(&objects);
+        symbols.push_back(Parent { indent, objects })
+    }
+
+    #[derive(Debug)]
+    struct Parent {
+        indent: usize,
+        objects: Vec<(String, Option<String>)>,
+    }
+
+    let mut parents: VecDeque<&Parent> = VecDeque::new();
+
+    let global_list = symbols.pop_front().unwrap();
+    dbg!(&global_list);
+    assert_eq!(global_list.objects[0].0, "GLOBAL_LIST");
+    parents.push_back(&global_list);
+
+    for sym in &symbols {
+        while sym.indent < parents.back().unwrap().indent {
+            let mut arguments = vec![];
+
+            // we are at a lower indentation level, pop parents until we are at the same level
+            let target_indentation = parents.back().unwrap().indent - 1;
+
+            while target_indentation < parents.back().unwrap().indent {
+                arguments.push(parents.pop_back().unwrap());
+            }
+
+            println!(
+                "> Calling {} with {} arguments",
+                parents.back().unwrap().objects[0].0,
+                arguments.len()
+            );
+            for a in arguments {
+                println!("> > {} {:?}", a.objects[0].0, a.objects[0].1);
+            }
+        }
+
+        parents.push_back(sym);
+
+        println!("{}{:?}", " ".repeat(sym.indent), sym.objects);
     }
 }
