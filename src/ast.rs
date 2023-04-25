@@ -103,30 +103,13 @@ pub fn parse() {
 
             let parent = callstack.back().unwrap();
 
-            //println!(
-            //    "> Calling {} (idx {}) with {} arguments",
-            //    parent.sym.objects[0].name,
-            //    parent.idx,
-            //    arguments.len()
-            //);
-            //for a in &arguments {
-            //    println!(
-            //        "> > {} {:?}",
-            //        a.sym.objects[0].name, a.sym.objects[0].argument
-            //    );
-            //}
-
             graph[parent.idx].extend(arguments.iter().rev().map(|a| a.idx));
         }
 
         callstack.push_back(IndexedRawSymbol { idx, sym });
-
-        //println!("{}{:?}", " ".repeat(sym.indent), sym.objects);
     }
 
     assert_eq!(callstack.len(), 2); // GLOBAL_LIST, and the dummy one
-
-    // stuff
 
     generate(&symbols, &graph, 0);
 }
@@ -140,6 +123,5 @@ fn generate(syms: &Vec<RawSymbol>, graph: &Vec<Vec<usize>>, idx: usize) -> Node 
     }
 
     // then generate this one
-
     generate_node_good(Entry(syms[idx].objects.clone()), &children)
 }
