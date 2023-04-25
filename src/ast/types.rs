@@ -84,6 +84,20 @@ impl TryFrom<Node> for Block {
     }
 }
 
+#[derive(Debug, Clone)]
+struct ReturnStatement(Expression);
+
+impl TryFrom<Node> for ReturnStatement {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::ReturnStatement(r) => Ok(r),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 impl TryInto<Vec<Parameter>> for Node {
     type Error = NodeExtractError;
 
@@ -196,6 +210,7 @@ pub enum Node {
     DeclarationList(Vec<Declaration>),
     AssignmentStatement(AssignmentStatement),
     PrintStatement(PrintStatement),
+    ReturnStatement(ReturnStatement),
     StatementList(Vec<Statement>),
 
     ArgumentList(ArgumentList),
@@ -215,6 +230,7 @@ enum Statement {
     Print(PrintStatement),
     If(IfStatement),
     Block(Block),
+    Return(ReturnStatement),
 }
 
 #[derive(Debug)]
@@ -231,6 +247,7 @@ impl TryFrom<Node> for Statement {
             Node::PrintStatement(s) => Ok(Self::Print(s)),
             Node::IfStatement(s) => Ok(Self::If(s)),
             Node::Block(s) => Ok(Self::Block(s)),
+            Node::ReturnStatement(s) => Ok(Self::Return(s)),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -498,6 +515,11 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             Node::ArgumentList(ArgumentList {
                 arguments: parameters,
             })
+        }
+        "RETURN_STATEMENT" => {
+            let exp: Expression = args[0].clone().try_into().unwrap();
+
+            Node::ReturnStatement(ReturnStatement(exp))
         }
         _ => panic!("Unknown type {}", name),
     };
