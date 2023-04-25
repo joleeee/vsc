@@ -37,6 +37,7 @@ fn parse_raw_symbols(lines: Vec<&str>) -> Vec<RawSymbol> {
     let mut symbols = Vec::new();
 
     for line in lines {
+        #[allow(clippy::len_zero)]
         if line.len() == 0 {
             continue;
         }
