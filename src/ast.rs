@@ -58,7 +58,7 @@ fn parse_raw_symbols(lines: Vec<&str>) -> Vec<RawSymbol> {
     symbols
 }
 
-pub fn parse() {
+pub fn parse() -> Node {
     let symbols = std::fs::read_to_string("locals.symbols").unwrap();
 
     let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
@@ -112,7 +112,7 @@ pub fn parse() {
 
     assert_eq!(callstack.len(), 2); // GLOBAL_LIST, and the dummy one
 
-    generate(&symbols, &graph, 0);
+    generate(&symbols, &graph, 0)
 }
 
 fn generate(syms: &Vec<RawSymbol>, graph: &Vec<Vec<usize>>, idx: usize) -> Node {
