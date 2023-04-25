@@ -68,6 +68,17 @@ enum BlockChild {
     ReturnStatement,
 }
 
+impl TryFrom<Node> for Declaration {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Declaration(p) => Ok(p),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Declaration {
     names: Vec<Identifier>,
@@ -247,26 +258,22 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             }
         }
         "DECLARATION" => {
-            let mut names = vec![];
-
-            for d in args {
-                match d {
-                    Node::Identifier(p) => names.push(p.clone()),
-                    _x => panic!("Expected parameter, got {:?}", _x),
-                }
-            }
+            let names = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
 
             Node::Declaration(Declaration { names })
         }
         "DECLARATION_LIST" => {
-            let mut declarations = vec![];
-
-            for d in args {
-                match d {
-                    Node::Declaration(p) => declarations.push((*p).clone()),
-                    _x => panic!("Expected parameter, got {:?}", _x),
-                }
-            }
+            let declarations = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
 
             Node::DeclarationList(declarations)
         }
