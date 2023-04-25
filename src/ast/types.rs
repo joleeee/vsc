@@ -46,6 +46,12 @@ struct Function {
 }
 
 #[derive(Debug, Clone)]
+struct ArrayDeclaration {
+    name: Identifier,
+    len: i64,
+}
+
+#[derive(Debug, Clone)]
 struct Block {
     children: Vec<BlockChild>,
 }
@@ -67,6 +73,17 @@ impl TryInto<Vec<Parameter>> for Node {
     fn try_into(self) -> Result<Vec<Parameter>, Self::Error> {
         match self {
             Node::ParameterList(p) => Ok(p),
+            _ => Err(NodeExtractError::Unexpected(self)),
+        }
+    }
+}
+
+impl TryInto<i64> for Node {
+    type Error = NodeExtractError;
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        match self {
+            Node::NumberData(n) => Ok(n),
             _ => Err(NodeExtractError::Unexpected(self)),
         }
     }
@@ -125,6 +142,7 @@ impl TryFrom<Node> for Expression {
 enum Globals {
     Function(Function),
     Declaration(Declaration),
+    ArrayDeclaration(ArrayDeclaration),
 }
 
 impl TryFrom<Node> for Globals {
@@ -134,6 +152,7 @@ impl TryFrom<Node> for Globals {
         match value {
             Node::Function(f) => Ok(Self::Function(f)),
             Node::Declaration(d) => Ok(Self::Declaration(d)),
+            Node::ArrayDeclaration(a) => Ok(Self::ArrayDeclaration(a)),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -144,6 +163,8 @@ pub enum Node {
     GlobalList(Vec<Globals>),
 
     Function(Function),
+    ArrayDeclaration(ArrayDeclaration),
+
     Block(Block),
     ParameterList(Vec<Parameter>),
     Expression(Expression),
@@ -171,7 +192,7 @@ enum Statement {
 }
 
 #[derive(Debug)]
-enum NodeExtractError {
+pub enum NodeExtractError {
     Unexpected(Node),
 }
 
@@ -374,6 +395,12 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 .collect();
 
             Node::GlobalList(globals)
+        }
+        "ARRAY_DECLARATION" => {
+            let name = args[0].clone().try_into().unwrap();
+            let len: i64 = args[1].clone().try_into().unwrap();
+
+            Node::ArrayDeclaration(ArrayDeclaration { name, len })
         }
         _ => panic!("Unknown type {}", name),
     };
