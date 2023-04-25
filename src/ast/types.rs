@@ -77,6 +77,7 @@ pub enum Node {
     DeclarationList(Vec<Declaration>),
     AssignmentStatement(AssignmentStatement),
     PrintStatement(PrintStatement),
+    StatementList(Vec<Statement>),
 
     Identifier(Identifier),
     LocatedIdentifier(LocatedIdentifier),
@@ -272,6 +273,16 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 condition: relation,
                 statement: Box::new(statement),
             })
+        }
+        "STATEMENT_LIST" => {
+            let args = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
+
+            Node::StatementList(args)
         }
         _ => panic!("Unknown type {}", name),
     };
