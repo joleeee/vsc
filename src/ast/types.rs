@@ -98,7 +98,7 @@ struct Declaration {
 #[derive(Debug, Clone)]
 enum Expression {
     Variable(LocatedIdentifier),
-    Constant(i32),
+    Constant(i64),
 
     // operations
     Add(Box<Expression>, Box<Expression>),
@@ -156,7 +156,7 @@ pub enum Node {
 
     Identifier(Identifier),
     LocatedIdentifier(LocatedIdentifier),
-    NumberData(i32),
+    NumberData(i64),
 
     Relation(Relation),
     IfStatement(IfStatement),
@@ -203,8 +203,8 @@ struct IfStatement {
 
 #[derive(Debug, Clone)]
 enum Location {
-    Parameter(i32),
-    Local(i32),
+    Parameter(i64),
+    Local(i64),
 }
 
 #[derive(Debug, Clone)]
