@@ -125,6 +125,17 @@ struct Relation {
     operator: char, // TODO
 }
 
+impl TryFrom<Node> for Relation {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Relation(rel) => Ok(rel),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct AssignmentStatement {
     left: LocatedIdentifier,
@@ -265,11 +276,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             })
         }
         "IF_STATEMENT" => {
-            let relation = match &args[0] {
-                Node::Relation(rel) => rel.clone(),
-                _x => panic!("Expected relation, got {:?}", _x),
-            };
-
+            let relation: Relation = args[0].clone().try_into().unwrap();
             let statement: Statement = args[1].clone().try_into().unwrap();
 
             Node::IfStatement(IfStatement {
