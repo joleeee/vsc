@@ -13,7 +13,7 @@ pub fn parse_identifier(input: &str) -> Field {
 
     let argument = parts
         .get(1)
-        .and_then(|data| Some(data.chars().take_while(|&x| x != ')').collect::<String>()));
+        .map(|data| data.chars().take_while(|&x| x != ')').collect::<String>());
 
     Field { name, argument }
 }
@@ -45,8 +45,8 @@ fn parse_raw_symbols(lines: Vec<&str>) -> Vec<RawSymbol> {
 
         let remaining = line.chars().skip(indent).collect::<String>();
 
-        let objects = remaining.split_terminator(' ').collect::<Vec<_>>();
-        let objects = objects
+        let objects = remaining
+            .split_terminator(' ')
             .into_iter()
             .map(parse_identifier)
             .collect::<Vec<_>>();
@@ -61,7 +61,7 @@ pub fn parse() {
     let symbols = std::fs::read_to_string("locals.symbols").unwrap();
 
     let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
-    let ast = ast.split("\n").map(|x| x.trim_end()).collect::<Vec<&str>>();
+    let ast = ast.split('\n').map(|x| x.trim_end()).collect::<Vec<&str>>();
 
     let symbols = parse_raw_symbols(ast);
 
@@ -85,7 +85,7 @@ pub fn parse() {
     assert_eq!(global_list.objects[0].name, "GLOBAL_LIST");
     callstack.push_back(IndexedRawSymbol {
         idx: 0,
-        sym: &global_list,
+        sym: global_list,
     });
 
     let mut graph = vec![vec![]; symbols.len()];
@@ -125,9 +125,9 @@ pub fn parse() {
     }
 
     assert_eq!(callstack.len(), 2); // GLOBAL_LIST, and the dummy one
-    
+
     // stuff
-    
+
     generate(&symbols, &graph, 0);
 }
 
@@ -138,9 +138,8 @@ fn generate(syms: &Vec<RawSymbol>, graph: &Vec<Vec<usize>>, idx: usize) -> Node 
         let ch = generate(syms, graph, *ci);
         children.push(ch);
     }
-    
+
     // then generate this one
-    let node = generate_node_good(Entry(syms[idx].objects.clone()), &children);
-    
-    node
+
+    generate_node_good(Entry(syms[idx].objects.clone()), &children)
 }
