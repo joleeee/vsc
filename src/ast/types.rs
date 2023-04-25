@@ -195,6 +195,8 @@ pub enum Node {
     PrintStatement(PrintStatement),
     StatementList(Vec<Statement>),
 
+    ArgumentList(Vec<LocatedIdentifier>),
+
     Identifier(Identifier),
     LocatedIdentifier(LocatedIdentifier),
     NumberData(i64),
@@ -459,6 +461,16 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             let reference = innerarg.as_ref().unwrap()[1..].parse().unwrap();
 
             Node::StringData(reference)
+        }
+        "ARGUMENT_LIST" => {
+            let parameters: Vec<LocatedIdentifier> = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
+
+            Node::ArgumentList(parameters)
         }
         _ => panic!("Unknown type {}", name),
     };
