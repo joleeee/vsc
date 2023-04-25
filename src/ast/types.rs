@@ -73,6 +73,19 @@ struct Block {
     children: Vec<BlockChild>,
 }
 
+impl TryFrom<Node> for BlockChild {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::StatementList(s) => Ok(Self::StatementList(s)),
+            Node::DeclarationList(s) => Ok(Self::DeclarationList(s)),
+            Node::ReturnStatement(s) => Ok(Self::ReturnStatement(s)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 impl TryFrom<Node> for Block {
     type Error = NodeExtractError;
 
@@ -124,7 +137,7 @@ impl TryInto<i64> for Node {
 enum BlockChild {
     StatementList(Vec<Statement>),
     DeclarationList(Vec<Declaration>),
-    ReturnStatement,
+    ReturnStatement(ReturnStatement),
 }
 
 impl TryFrom<Node> for Declaration {
@@ -356,7 +369,15 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
     } = &e.0[0];
 
     return match name.as_str() {
-        "BLOCK" => Node::Block(Block { children: vec![] }),
+        "BLOCK" => Node::Block(Block {
+            children: args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect(),
+        }),
+
         "PARAMETER_LIST" => {
             let data = args
                 .clone()
