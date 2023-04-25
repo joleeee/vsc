@@ -25,6 +25,17 @@ struct LocatedIdentifier {
 #[derive(Debug, Clone)]
 struct Parameter(Identifier);
 
+impl TryFrom<Node> for Parameter {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Identifier(i) => Ok(Parameter(i)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Function {
     name: Identifier,
@@ -229,14 +240,12 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
     return match name.as_str() {
         "BLOCK" => Node::Block(Block { children: vec![] }),
         "PARAMETER_LIST" => {
-            let mut data = vec![];
-
-            for d in args {
-                match d {
-                    Node::Identifier(p) => data.push(Parameter(p.clone())),
-                    _x => panic!("Expected parameter, got {:?}", _x),
-                }
-            }
+            let data = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
 
             Node::ParameterList(data)
         }
