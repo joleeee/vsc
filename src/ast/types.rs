@@ -53,6 +53,19 @@ enum Expression {
     Negative(Box<Expression>),
 }
 
+impl TryFrom<Node> for Expression {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Expression(p) => Ok(p),
+            Node::LocatedIdentifier(i) => Ok(Expression::Variable(i)),
+            Node::NumberData(n) => Ok(Expression::Constant(n)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Node {
     Function(Function),
@@ -204,17 +217,9 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             Node::DeclarationList(declarations)
         }
         "EXPRESSION" => {
-            fn evaluate(x: &Node) -> Expression {
-                match x {
-                    Node::Expression(p) => p.clone(),
-                    Node::LocatedIdentifier(i) => Expression::Variable(i.clone()),
-                    _x => panic!("Expected expression, got {:?}", _x),
-                }
-            }
-
             // lazy eval, in case there is only one arg
-            let first = || evaluate(&args[0]);
-            let second = || evaluate(&args[1]);
+            let first = || args[0].clone().try_into().unwrap();
+            let second = || args[1].clone().try_into().unwrap();
 
             Node::Expression(match innerarg.as_ref().unwrap().as_str() {
                 "+" => Expression::Add(Box::new(first()), Box::new(second())),
@@ -236,12 +241,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 _x => panic!("Expected identifier, got {:?}", _x),
             };
 
-            let right = match &args[1] {
-                Node::Expression(p) => p.clone(),
-                Node::LocatedIdentifier(i) => Expression::Variable(i.clone()),
-                Node::NumberData(n) => Expression::Constant(*n),
-                _x => panic!("Expected expression, got {:?}", _x),
-            };
+            let right = args[1].clone().try_into().unwrap();
 
             Node::AssignmentStatement(AssignmentStatement { left, right })
         }
@@ -255,19 +255,8 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         "RELATION" => {
             let operator = innerarg.as_ref().unwrap().chars().next().unwrap();
 
-            let left = match &args[0] {
-                Node::Expression(p) => p.clone(),
-                Node::LocatedIdentifier(i) => Expression::Variable(i.clone()),
-                Node::NumberData(n) => Expression::Constant(*n),
-                _x => panic!("Expected expression, got {:?}", _x),
-            };
-
-            let right = match &args[1] {
-                Node::Expression(p) => p.clone(),
-                Node::LocatedIdentifier(i) => Expression::Variable(i.clone()),
-                Node::NumberData(n) => Expression::Constant(*n),
-                _x => panic!("Expected expression, got {:?}", _x),
-            };
+            let left: Expression = args[0].clone().try_into().unwrap();
+            let right: Expression = args[1].clone().try_into().unwrap();
 
             Node::Relation(Relation {
                 left,
