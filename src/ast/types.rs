@@ -286,6 +286,7 @@ enum Location {
     Parameter(i64),
     Local(i64),
     GlobalArray(i64),
+    GlobalVar(i64),
     Function(i64),
 }
 
@@ -300,6 +301,7 @@ impl TryFrom<&Field> for Location {
             "PARAMETER" => Ok(Location::Parameter(position)),
             "GLOBAL_ARRAY" => Ok(Location::GlobalArray(position)),
             "FUNCTION" => Ok(Location::Function(position)),
+            "GLOBAL_VAR" => Ok(Location::GlobalVar(position)),
             _x => panic!("Unknown location, got {}", _x),
         }
     }
