@@ -198,6 +198,7 @@ pub enum Node {
     Identifier(Identifier),
     LocatedIdentifier(LocatedIdentifier),
     NumberData(i64),
+    StringData(i64),
 
     Relation(Relation),
     IfStatement(IfStatement),
@@ -285,7 +286,7 @@ impl TryFrom<Node> for Relation {
 #[derive(Debug, Clone)]
 enum Assignee {
     Variable(LocatedIdentifier),
-    Array(ArrayIndexing)
+    Array(ArrayIndexing),
 }
 
 impl TryFrom<Node> for Assignee {
@@ -449,8 +450,13 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         "ARRAY_INDEXING" => {
             let name = args[0].clone().try_into().unwrap();
             let idx = Box::new(args[1].clone().try_into().unwrap());
-            
-            Node::ArrayIndexing(ArrayIndexing{name, idx})
+
+            Node::ArrayIndexing(ArrayIndexing { name, idx })
+        }
+        "STRING_DATA" => {
+            let reference = innerarg.as_ref().unwrap()[1..].parse().unwrap();
+
+            Node::StringData(reference)
         }
         _ => panic!("Unknown type {}", name),
     };
