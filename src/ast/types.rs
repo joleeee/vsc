@@ -141,6 +141,9 @@ enum Expression {
     Multiply(Box<Expression>, Box<Expression>),
     Divide(Box<Expression>, Box<Expression>),
     Negative(Box<Expression>),
+
+    // other
+    Call(LocatedIdentifier, Vec<LocatedIdentifier>),
 }
 
 impl TryFrom<Node> for Expression {
@@ -195,7 +198,7 @@ pub enum Node {
     PrintStatement(PrintStatement),
     StatementList(Vec<Statement>),
 
-    ArgumentList(Vec<LocatedIdentifier>),
+    ArgumentList(ArgumentList),
 
     Identifier(Identifier),
     LocatedIdentifier(LocatedIdentifier),
@@ -228,6 +231,22 @@ impl TryFrom<Node> for Statement {
             Node::PrintStatement(s) => Ok(Self::Print(s)),
             Node::IfStatement(s) => Ok(Self::If(s)),
             Node::Block(s) => Ok(Self::Block(s)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ArgumentList {
+    arguments: Vec<LocatedIdentifier>,
+}
+
+impl TryFrom<Node> for ArgumentList {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::ArgumentList(a) => Ok(a),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -365,6 +384,11 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             let first = || args[0].clone().try_into().unwrap();
             let second = || args[1].clone().try_into().unwrap();
 
+            let call_args = || {
+                let arg_list: ArgumentList = args[1].clone().try_into().unwrap();
+                arg_list.arguments
+            };
+
             Node::Expression(match innerarg.as_ref().unwrap().as_str() {
                 "+" => Expression::Add(Box::new(first()), Box::new(second())),
                 "-" => {
@@ -376,6 +400,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 }
                 "*" => Expression::Multiply(Box::new(first()), Box::new(second())),
                 "/" => Expression::Divide(Box::new(first()), Box::new(second())),
+                "call" => Expression::Call(args[0].clone().try_into().unwrap(), call_args()),
                 _ => todo!(),
             })
         }
@@ -470,7 +495,9 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 .map(Result::unwrap)
                 .collect();
 
-            Node::ArgumentList(parameters)
+            Node::ArgumentList(ArgumentList {
+                arguments: parameters,
+            })
         }
         _ => panic!("Unknown type {}", name),
     };
