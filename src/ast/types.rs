@@ -5,6 +5,17 @@ struct Identifier {
     name: String,
 }
 
+impl TryFrom<Node> for Identifier {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Identifier(id) => Ok(id),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct LocatedIdentifier {
     name: Identifier,
@@ -20,12 +31,34 @@ struct Function {
     parameters: Vec<Parameter>,
     block: Block,
 
-    return_statement: Block,
+    return_statement: Option<Block>,
 }
 
 #[derive(Debug, Clone)]
 struct Block {
     children: Vec<BlockChild>,
+}
+
+impl TryFrom<Node> for Block {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Block(b) => Ok(b),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
+impl TryInto<Vec<Parameter>> for Node {
+    type Error = NodeExtractError;
+
+    fn try_into(self) -> Result<Vec<Parameter>, Self::Error> {
+        match self {
+            Node::ParameterList(p) => Ok(p),
+            _ => Err(NodeExtractError::Unexpected(self)),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -67,7 +100,27 @@ impl TryFrom<Node> for Expression {
 }
 
 #[derive(Debug, Clone)]
+enum Globals {
+    Function(Function),
+    Declaration(Declaration),
+}
+
+impl TryFrom<Node> for Globals {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::Function(f) => Ok(Self::Function(f)),
+            Node::Declaration(d) => Ok(Self::Declaration(d)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Node {
+    GlobalList(Vec<Globals>),
+
     Function(Function),
     Block(Block),
     ParameterList(Vec<Parameter>),
@@ -283,6 +336,28 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 .collect();
 
             Node::StatementList(args)
+        }
+        "FUNCTION" => {
+            let name: Identifier = args[0].clone().try_into().unwrap();
+            let parameters: Vec<Parameter> = args[1].clone().try_into().unwrap();
+            let block = args[2].clone().try_into().unwrap();
+
+            Node::Function(Function {
+                name,
+                parameters,
+                block,
+                return_statement: None,
+            })
+        }
+        "GLOBAL_LIST" => {
+            let globals = args
+                .clone()
+                .into_iter()
+                .map(TryInto::try_into)
+                .map(Result::unwrap)
+                .collect();
+
+            Node::GlobalList(globals)
         }
         _ => panic!("Unknown type {}", name),
     };
