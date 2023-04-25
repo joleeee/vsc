@@ -81,6 +81,25 @@ enum Statement {
     Block(Block),
 }
 
+#[derive(Debug)]
+enum NodeExtractError {
+    Unexpected(Node),
+}
+
+impl TryFrom<Node> for Statement {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::AssignmentStatement(s) => Ok(Self::Assignment(s)),
+            Node::PrintStatement(s) => Ok(Self::Print(s)),
+            Node::IfStatement(s) => Ok(Self::If(s)),
+            Node::Block(s) => Ok(Self::Block(s)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct PrintStatement {
     //args: Vec<(Identifier, Location)>,
@@ -251,10 +270,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
                 _x => panic!("Expected relation, got {:?}", _x),
             };
 
-            let statement = match &args[1] {
-                Node::AssignmentStatement(s) => Statement::Assignment(s.clone()),
-                _x => panic!("Expected statement, got {:?}", _x),
-            };
+            let statement: Statement = args[1].clone().try_into().unwrap();
 
             Node::IfStatement(IfStatement {
                 condition: relation,
