@@ -226,6 +226,22 @@ struct IfStatement {
 enum Location {
     Parameter(i64),
     Local(i64),
+    GlobalArray(i64),
+}
+
+impl TryFrom<&Field> for Location {
+    type Error = NodeExtractError;
+
+    fn try_from(value: &Field) -> Result<Self, Self::Error> {
+        let position: i64 = value.argument.as_ref().unwrap().parse().unwrap();
+
+        match value.name.as_str() {
+            "LOCAL_VAR" => Ok(Location::Local(position)),
+            "PARAMETER" => Ok(Location::Parameter(position)),
+            "GLOBAL_ARRAY" => Ok(Location::GlobalArray(position)),
+            _x => panic!("Unknown location, got {}", _x),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -275,13 +291,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             let id = Identifier { name };
 
             if let Some(loc) = e.0.get(1) {
-                let position = loc.argument.as_ref().unwrap().parse().unwrap();
-                let location = match loc.name.as_str() {
-                    "LOCAL_VAR" => Location::Local(position),
-                    "PARAMETER" => Location::Parameter(position),
-                    _x => panic!("Unknown location, got {}", _x),
-                };
-
+                let location = loc.try_into().unwrap();
                 Node::LocatedIdentifier(LocatedIdentifier { name: id, location })
             } else {
                 Node::Identifier(id)
