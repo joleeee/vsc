@@ -22,6 +22,17 @@ struct LocatedIdentifier {
     location: Location,
 }
 
+impl TryFrom<Node> for LocatedIdentifier {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::LocatedIdentifier(id) => Ok(id),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Parameter(Identifier);
 
@@ -49,6 +60,12 @@ struct Function {
 struct ArrayDeclaration {
     name: Identifier,
     len: i64,
+}
+
+#[derive(Debug, Clone)]
+struct ArrayIndexing {
+    name: LocatedIdentifier,
+    idx: Box<Expression>,
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +133,7 @@ struct Declaration {
 enum Expression {
     Variable(LocatedIdentifier),
     Constant(i64),
+    Array(ArrayIndexing),
 
     // operations
     Add(Box<Expression>, Box<Expression>),
@@ -132,6 +150,7 @@ impl TryFrom<Node> for Expression {
         match value {
             Node::Expression(p) => Ok(p),
             Node::LocatedIdentifier(i) => Ok(Expression::Variable(i)),
+            Node::ArrayIndexing(i) => Ok(Expression::Array(i)),
             Node::NumberData(n) => Ok(Expression::Constant(n)),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
@@ -164,6 +183,7 @@ pub enum Node {
 
     Function(Function),
     ArrayDeclaration(ArrayDeclaration),
+    ArrayIndexing(ArrayIndexing),
 
     Block(Block),
     ParameterList(Vec<Parameter>),
@@ -263,8 +283,26 @@ impl TryFrom<Node> for Relation {
 }
 
 #[derive(Debug, Clone)]
+enum Assignee {
+    Variable(LocatedIdentifier),
+    Array(ArrayIndexing)
+}
+
+impl TryFrom<Node> for Assignee {
+    type Error = NodeExtractError;
+
+    fn try_from(value: Node) -> Result<Self, Self::Error> {
+        match value {
+            Node::ArrayIndexing(a) => Ok(Self::Array(a)),
+            Node::LocatedIdentifier(i) => Ok(Self::Variable(i)),
+            _ => Err(NodeExtractError::Unexpected(value)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 struct AssignmentStatement {
-    left: LocatedIdentifier,
+    left: Assignee,
     right: Expression,
 }
 
@@ -337,11 +375,7 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             })
         }
         "ASSIGNMENT_STATEMENT" => {
-            let left = match &args[0] {
-                Node::LocatedIdentifier(id) => id.clone(),
-                _x => panic!("Expected identifier, got {:?}", _x),
-            };
-
+            let left = args[0].clone().try_into().unwrap();
             let right = args[1].clone().try_into().unwrap();
 
             Node::AssignmentStatement(AssignmentStatement { left, right })
@@ -411,6 +445,12 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
             let len: i64 = args[1].clone().try_into().unwrap();
 
             Node::ArrayDeclaration(ArrayDeclaration { name, len })
+        }
+        "ARRAY_INDEXING" => {
+            let name = args[0].clone().try_into().unwrap();
+            let idx = Box::new(args[1].clone().try_into().unwrap());
+            
+            Node::ArrayIndexing(ArrayIndexing{name, idx})
         }
         _ => panic!("Unknown type {}", name),
     };
