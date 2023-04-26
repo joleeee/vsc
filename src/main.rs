@@ -4,7 +4,7 @@ fn main() {
     println!("Hello, world!");
 
     let v = ast::parse();
-    dbg!(&v);
+    dbg!(&v.root);
 
-    v.compile();
+    v.root.compile();
 }

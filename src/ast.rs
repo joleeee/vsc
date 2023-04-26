@@ -100,10 +100,52 @@ fn get_graph(symbols: &[RawSymbol]) -> Vec<Vec<usize>> {
     graph
 }
 
-pub fn parse() -> Node {
-    let symbols = std::fs::read_to_string("programs/locals.symbols").unwrap();
+fn parse_string_table(lines: &[&str]) -> Vec<String> {
+    let mut out = Vec::new();
 
-    let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
+    for (i, line) in lines.into_iter().enumerate() {
+        let (prefix, data) = line.split_at(2);
+
+        let prefix: usize = prefix.trim().strip_suffix(':').unwrap().parse().unwrap();
+
+        let data = data
+            .trim()
+            .strip_prefix('"')
+            .unwrap()
+            .strip_suffix('"')
+            .unwrap();
+
+        assert_eq!(i, prefix);
+
+        out.push(data.to_string());
+    }
+
+    out
+}
+
+#[derive(Debug)]
+pub struct ParsedProgram {
+    pub string_table: Vec<String>,
+    pub root: Node,
+}
+
+pub fn parse() -> ParsedProgram {
+    let symbols = std::fs::read_to_string("programs/arrays.symbols").unwrap();
+
+    let mut parts = symbols.split("\n == ").skip(1);
+
+    let string_table = parts.next().unwrap();
+    let string_table = string_table
+        .strip_prefix("STRING LIST == \n")
+        .unwrap()
+        .split('\n')
+        .map(|x| x.trim_end())
+        .filter(|v| !v.is_empty())
+        .collect::<Vec<&str>>();
+    let string_table = parse_string_table(&string_table);
+
+    let ast = parts.next().unwrap();
+    let ast = ast.strip_prefix("BOUND SYNTAX TREE == \n").unwrap();
     let ast = ast.split('\n').map(|x| x.trim_end()).collect::<Vec<&str>>();
 
     let mut symbols = parse_symbol_tree(ast);
@@ -117,7 +159,9 @@ pub fn parse() -> Node {
 
     let graph = get_graph(&symbols);
 
-    generate(&symbols, &graph, 0)
+    let root = generate(&symbols, &graph, 0);
+
+    ParsedProgram { string_table, root }
 }
 
 fn generate(syms: &Vec<RawSymbol>, graph: &Vec<Vec<usize>>, idx: usize) -> Node {
