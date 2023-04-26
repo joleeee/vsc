@@ -1,8 +1,8 @@
 use super::Field;
 
 #[derive(Debug, Clone)]
-struct Identifier {
-    name: String,
+pub struct Identifier {
+    pub name: String,
 }
 
 impl TryFrom<Node> for Identifier {
@@ -34,7 +34,7 @@ impl TryFrom<Node> for LocatedIdentifier {
 }
 
 #[derive(Debug, Clone)]
-struct Parameter(Identifier);
+pub struct Parameter(Identifier);
 
 impl TryFrom<Node> for Parameter {
     type Error = NodeExtractError;
@@ -48,18 +48,18 @@ impl TryFrom<Node> for Parameter {
 }
 
 #[derive(Debug, Clone)]
-struct Function {
-    name: Identifier,
-    parameters: Vec<Parameter>,
-    block: Block,
+pub struct Function {
+    pub name: Identifier,
+    pub parameters: Vec<Parameter>,
+    pub block: Block,
 
-    return_statement: Option<Block>,
+    pub return_statement: Option<Block>,
 }
 
 #[derive(Debug, Clone)]
-struct ArrayDeclaration {
-    name: Identifier,
-    len: i64,
+pub struct ArrayDeclaration {
+    pub name: Identifier,
+    pub len: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -69,8 +69,8 @@ struct ArrayIndexing {
 }
 
 #[derive(Debug, Clone)]
-struct Block {
-    children: Vec<BlockChild>,
+pub struct Block {
+    pub children: Vec<BlockChild>,
 }
 
 impl TryFrom<Node> for BlockChild {
@@ -134,7 +134,7 @@ impl TryInto<i64> for Node {
 }
 
 #[derive(Debug, Clone)]
-enum BlockChild {
+pub enum BlockChild {
     StatementList(Vec<Statement>),
     DeclarationList(Vec<Declaration>),
     ReturnStatement(ReturnStatement),
@@ -151,9 +151,20 @@ impl TryFrom<Node> for Declaration {
     }
 }
 
+impl TryInto<Vec<Globals>> for Node {
+    type Error = NodeExtractError;
+
+    fn try_into(self) -> Result<Vec<Globals>, Self::Error> {
+        match self {
+            Node::GlobalList(n) => Ok(n),
+            _ => Err(NodeExtractError::Unexpected(self)),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-struct Declaration {
-    names: Vec<Identifier>,
+pub struct Declaration {
+    pub names: Vec<Identifier>,
 }
 
 #[derive(Debug, Clone)]
@@ -188,7 +199,7 @@ impl TryFrom<Node> for Expression {
 }
 
 #[derive(Debug, Clone)]
-enum Globals {
+pub enum Globals {
     Function(Function),
     Declaration(Declaration),
     ArrayDeclaration(ArrayDeclaration),
