@@ -72,6 +72,45 @@ struct ArrayIndexing {
 pub struct Block {
     pub children: Vec<BlockChild>,
 }
+impl Block {
+    /// vars which are declared directly inside this block
+    pub fn direct_vars(&self) -> Vec<Identifier> {
+        let declaration_lists = self.children.iter().filter_map(|c| match c {
+            BlockChild::DeclarationList(decls) => Some(decls),
+            _ => None,
+        });
+
+        let declarations = declaration_lists
+            .flat_map(|decls| decls.iter())
+            .flat_map(|decl| decl.names.clone());
+
+        declarations.collect()
+    }
+
+    // all vars including vars in children
+    pub fn recursive_vars(&self) -> Vec<Vec<Identifier>> {
+        let mut vars = Vec::new();
+        vars.push(self.direct_vars());
+
+        let statement_list = self.children.iter().filter_map(|c| match c {
+            BlockChild::StatementList(decls) => Some(decls),
+            _ => None,
+        });
+
+        let statements = statement_list.flat_map(|decls| decls.iter());
+
+        let blocks = statements.filter_map(|statement| match statement {
+            Statement::Block(b) => Some(b),
+            _ => None,
+        });
+
+        for b in blocks {
+            vars.extend(b.recursive_vars());
+        }
+
+        vars
+    }
+}
 
 impl TryFrom<Node> for BlockChild {
     type Error = NodeExtractError;

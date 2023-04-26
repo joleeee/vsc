@@ -130,9 +130,11 @@ pub struct ParsedProgram {
 }
 
 pub fn parse() -> ParsedProgram {
-    let symbols = std::fs::read_to_string("programs/arrays.symbols").unwrap();
+    let symbols = std::fs::read_to_string("programs/locals.symbols").unwrap();
 
-    let mut parts = symbols.split("\n == ").skip(1);
+    let mut parts = symbols.split("\n == ");
+
+    let global_table = parts.next().unwrap();
 
     let string_table = parts.next().unwrap();
     let string_table = string_table

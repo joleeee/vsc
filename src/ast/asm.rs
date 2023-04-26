@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write};
 
-use super::{Globals, ParsedProgram};
+use super::{Globals, Node, ParsedProgram};
 
 #[derive(Debug)]
 struct GlobalSymbol {
@@ -48,10 +48,11 @@ impl ParsedProgram {
             };
         }
 
-        for t in table {
+        for t in &table {
             println!("{}", t.0);
         }
-        todo!();
+
+        table
     }
 
     fn strings(&self) -> String {
@@ -64,7 +65,58 @@ impl ParsedProgram {
     }
 
     fn vars(&self) -> String {
+        const FUN_PROLOGUE: &'static str = r#"
+    // prologue
+    pushq %rbp // save stack ptr
+	movq %rsp, %rbp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+"#;
+
+        const FUN_EPILOGUE: &'static str = r#"
+    // epilogue
+    movq %rbp, %rsp // reset stack ptr
+	popq %rbp
+	ret
+"#;
+
         let mut output = String::new();
+
+        let globals = self.globals();
+        let functions = globals.values().filter_map(|g| match g.node {
+            Globals::Function(ref f) => Some(f),
+            _ => None,
+        });
+
+        // recursively go through blocks to find all variables
+        for f in functions {
+            // epilogue
+            output += format!("\n\nfun_{}:", f.name.name).as_str();
+            output += FUN_PROLOGUE;
+
+            // make space for variables
+            let vars_list = f.block.recursive_vars();
+            let mut var_count = 0;
+            for (block_i, vars) in vars_list.into_iter().enumerate() {
+                for var in vars {
+                    output += format!(
+                        "    pushq $0 // {} ({}) (block {})\n",
+                        var.name, var_count, block_i
+                    )
+                    .as_str();
+                    var_count += 1;
+                }
+            }
+
+            // prologue
+            output += "\n    movq $0, %rax // default return value\n";
+            output += format!("fun_ret_{}:", f.name.name).as_str();
+            output += FUN_EPILOGUE;
+        }
 
         output
     }

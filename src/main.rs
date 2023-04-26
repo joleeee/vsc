@@ -3,10 +3,8 @@ use std::io::BufWriter;
 mod ast;
 
 fn main() {
-    println!("Hello, world!");
-
     let v = ast::parse();
-    dbg!(&v.root);
+    println!("{:#?}", v.root);
 
     let out = std::fs::File::create("out.s").unwrap();
 
