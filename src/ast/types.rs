@@ -497,13 +497,27 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         "FUNCTION" => {
             let name: Identifier = args[0].clone().try_into().unwrap();
             let parameters: Vec<Parameter> = args[1].clone().try_into().unwrap();
-            let block = args[2].clone().try_into().unwrap();
+
+            let mut block: Option<Block> = None;
+            let mut return_statement: Option<Block> = None;
+
+            for v in &args[2..] {
+                let v = v.clone();
+
+                if let Ok(b) = v.clone().try_into() {
+                    block = Some(b);
+                } else if let Ok(s) = v.clone().try_into() {
+                    return_statement = Some(s);
+                }
+            }
+
+            let block = block.unwrap_or(Block { children: vec![] });
 
             Node::Function(Function {
                 name,
                 parameters,
                 block,
-                return_statement: None,
+                return_statement,
             })
         }
         "GLOBAL_LIST" => {
