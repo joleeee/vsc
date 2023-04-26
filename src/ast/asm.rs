@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write};
 
-use super::{Globals, Identifier, Node, ParsedProgram};
+use super::{Globals, ParsedProgram};
 
 #[derive(Debug)]
 struct GlobalSymbol {
