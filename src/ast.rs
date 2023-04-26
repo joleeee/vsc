@@ -127,5 +127,5 @@ fn generate(syms: &Vec<RawSymbol>, graph: &Vec<Vec<usize>>, idx: usize) -> Node 
         .collect();
 
     // then generate this one
-    generate_node_good(Entry(syms[idx].objects.clone()), &children)
+    generate_node_good(Entry(syms[idx].objects.clone()), children)
 }

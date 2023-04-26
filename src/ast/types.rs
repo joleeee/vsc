@@ -362,7 +362,7 @@ struct AssignmentStatement {
     right: Expression,
 }
 
-pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
+pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
     let Field {
         name,
         argument: innerarg,
@@ -371,7 +371,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
     return match name.as_str() {
         "BLOCK" => Node::Block(Block {
             children: args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -380,7 +379,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
 
         "PARAMETER_LIST" => {
             let data = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -401,7 +399,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         }
         "DECLARATION" => {
             let names = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -411,7 +408,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         }
         "DECLARATION_LIST" => {
             let declarations = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -480,7 +476,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         }
         "STATEMENT_LIST" => {
             let args = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -502,7 +497,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         }
         "GLOBAL_LIST" => {
             let globals = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
@@ -529,7 +523,6 @@ pub fn generate_node_good(e: super::Entry, args: &Vec<Node>) -> Node {
         }
         "ARGUMENT_LIST" => {
             let parameters: Vec<LocatedIdentifier> = args
-                .clone()
                 .into_iter()
                 .map(TryInto::try_into)
                 .map(Result::unwrap)
