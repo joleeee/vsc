@@ -103,7 +103,7 @@ fn get_graph(symbols: &[RawSymbol]) -> Vec<Vec<usize>> {
 fn parse_string_table(lines: &[&str]) -> Vec<String> {
     let mut out = Vec::new();
 
-    for (i, line) in lines.into_iter().enumerate() {
+    for (i, line) in lines.iter().enumerate() {
         let (prefix, data) = line.split_at(2);
 
         let prefix: usize = prefix.trim().strip_suffix(':').unwrap().parse().unwrap();
@@ -123,7 +123,7 @@ fn parse_string_table(lines: &[&str]) -> Vec<String> {
     out
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedProgram {
     pub string_table: Vec<String>,
     pub root: Node,
