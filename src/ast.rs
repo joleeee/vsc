@@ -57,21 +57,7 @@ fn parse_symbol_tree(lines: Vec<&str>) -> Vec<RawSymbol> {
         .collect()
 }
 
-pub fn parse() -> Node {
-    let symbols = std::fs::read_to_string("programs/locals.symbols").unwrap();
-
-    let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
-    let ast = ast.split('\n').map(|x| x.trim_end()).collect::<Vec<&str>>();
-
-    let mut symbols = parse_symbol_tree(ast);
-
-    // add one 0-level at the end to pop everything
-    symbols.push(RawSymbol {
-        indent: 0,
-        objects: vec![],
-    });
-    let symbols = symbols;
-
+fn get_graph(symbols: &[RawSymbol]) -> Vec<Vec<usize>> {
     #[derive(Debug)]
     struct IndexedRawSymbol<'a> {
         idx: usize,
@@ -109,6 +95,26 @@ pub fn parse() -> Node {
     }
 
     assert_eq!(callstack.len(), 2); // GLOBAL_LIST, and the dummy one
+
+    graph
+}
+
+pub fn parse() -> Node {
+    let symbols = std::fs::read_to_string("programs/locals.symbols").unwrap();
+
+    let ast = symbols.split(" == BOUND SYNTAX TREE == \n").last().unwrap();
+    let ast = ast.split('\n').map(|x| x.trim_end()).collect::<Vec<&str>>();
+
+    let mut symbols = parse_symbol_tree(ast);
+
+    // add one 0-level at the end to pop everything
+    symbols.push(RawSymbol {
+        indent: 0,
+        objects: vec![],
+    });
+    let symbols = symbols;
+
+    let graph = get_graph(&symbols);
 
     generate(&symbols, &graph, 0)
 }
