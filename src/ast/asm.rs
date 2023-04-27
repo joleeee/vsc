@@ -160,7 +160,6 @@ errout: .asciz "Wrong number of arguments"
 
 "#;
         out.write_all(TEXT).unwrap();
-        self.strings(&mut out);
 
         const DATA: &[u8] = br#"
 
@@ -175,6 +174,7 @@ errout: .asciz "Wrong number of arguments"
 "#;
 
         out.write_all(DATA).unwrap();
+        self.strings(&mut out);
         self.gvars(&mut out);
 
         out.write_all(CODE).unwrap();
