@@ -305,7 +305,10 @@ impl Expression {
                 output += "    cqto\n";
                 output += "    idivq %rdi\n";
             }
-            //Expression::Negative(_) => todo!(),
+            Expression::Negative(a) => {
+                output += &a.compile();
+                output += "    negq %rax\n";
+            },
             Expression::Call(func, arguments) => {
                 // evaluate all arguments
                 for (i, arg) in arguments.iter().enumerate() {
@@ -324,7 +327,6 @@ impl Expression {
                 output += &format!("    call fun_{}\n", func.name.name);
             }
             _ => todo!(),
-            //_ => eprintln!("Not handled {:?}", self),
         }
 
         output
