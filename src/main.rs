@@ -4,7 +4,6 @@ mod ast;
 
 fn main() {
     let v = ast::parse();
-    println!("{:#?}", v.root);
 
     let out = std::fs::File::create("out.s").unwrap();
 

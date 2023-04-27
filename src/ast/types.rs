@@ -21,7 +21,7 @@ impl TryFrom<Node> for Identifier {
 }
 
 #[derive(Debug, Clone)]
-struct LocatedIdentifier {
+pub struct LocatedIdentifier {
     name: Identifier,
     location: Location,
 }
@@ -67,7 +67,7 @@ pub struct ArrayDeclaration {
 }
 
 #[derive(Debug, Clone)]
-struct ArrayIndexing {
+pub struct ArrayIndexing {
     name: LocatedIdentifier,
     idx: Box<Expression>,
 }
@@ -204,17 +204,6 @@ impl TryFrom<Node> for Declaration {
     }
 }
 
-impl TryInto<Vec<Globals>> for Node {
-    type Error = NodeExtractError;
-
-    fn try_into(self) -> Result<Vec<Globals>, Self::Error> {
-        match self {
-            Node::GlobalList(n) => Ok(n),
-            _ => Err(NodeExtractError::Unexpected(self)),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Declaration {
     pub names: Vec<Identifier>,
@@ -245,15 +234,15 @@ impl Expression {
         match self {
             Expression::Variable(lid) => {
                 let rbp_offset = match lid.location {
-                    Location::Parameter(l) => -(l + 1) * 8,
+                    Location::Parameter(l) => format!("{}(%rbp)", -(l + 1) * 8),
                     Location::GlobalArray(_) | Location::Function(_) => {
                         panic!("Cannot print a whole array or function.")
                     }
-                    Location::Local(v) => -(v + 1 + 6) * 8,
-                    _ => todo!(),
+                    Location::Local(v) => format!("{}(%rbp)", -(v + 1 + 6) * 8),
+                    Location::GlobalVar(_) => format!("gvar_{}(%rip)", lid.name.name),
                 };
 
-                output += &format!("    movq {}(%rbp), %rax\n", rbp_offset);
+                output += &format!("    movq {}, %rax\n", rbp_offset);
             }
             Expression::Constant(n) => {
                 output += &format!("    movq ${}, %rax\n", n);
@@ -336,7 +325,7 @@ impl Expression {
                 );
 
                 // 3. get element
-                output += &format!("    movq (%rdi, %rax, 8), %rax\n");
+                output += "    movq (%rdi, %rax, 8), %rax\n";
             }
         }
 
@@ -361,18 +350,19 @@ impl TryFrom<Node> for Expression {
 #[derive(Debug, Clone)]
 pub enum Globals {
     Function(Function),
-    Declaration(Declaration),
+    VarDeclaration(Identifier),
     ArrayDeclaration(ArrayDeclaration),
 }
 
-impl TryFrom<Node> for Globals {
+impl TryFrom<Node> for Vec<Globals> {
     type Error = NodeExtractError;
 
     fn try_from(value: Node) -> Result<Self, Self::Error> {
         match value {
-            Node::Function(f) => Ok(Self::Function(f)),
-            Node::Declaration(d) => Ok(Self::Declaration(d)),
-            Node::ArrayDeclaration(a) => Ok(Self::ArrayDeclaration(a)),
+            Node::Function(f) => Ok(vec![Globals::Function(f)]),
+            Node::Declaration(d) => Ok(d.names.into_iter().map(Globals::VarDeclaration).collect()),
+            Node::ArrayDeclaration(a) => Ok(vec![Globals::ArrayDeclaration(a)]),
+            Node::GlobalList(n) => Ok(n),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -438,7 +428,7 @@ impl TryFrom<Node> for Statement {
 }
 
 #[derive(Debug, Clone)]
-struct ArgumentList {
+pub struct ArgumentList {
     arguments: Vec<LocatedIdentifier>,
 }
 
@@ -507,7 +497,7 @@ impl Compilable for PrintStatement {
 }
 
 #[derive(Debug, Clone)]
-struct IfStatement {
+pub struct IfStatement {
     condition: Relation,
     statement: Box<Statement>,
 }
@@ -539,7 +529,7 @@ impl TryFrom<&Field> for Location {
 }
 
 #[derive(Debug, Clone)]
-struct Relation {
+pub struct Relation {
     left: Expression,
     right: Expression,
     operator: char, // TODO
@@ -591,16 +581,16 @@ impl Compilable for AssignmentStatement {
         match &self.left {
             Assignee::Variable(var) => {
                 let rbp_offset = match var.location {
-                    Location::Parameter(l) => -(l + 1) * 8,
+                    Location::Parameter(l) => format!("{}(%rbp)", -(l + 1) * 8),
                     Location::GlobalArray(_) | Location::Function(_) => {
-                        panic!("Cannot write to whole array or function.")
+                        panic!("Cannot write to a whole array or function.")
                     }
-                    Location::Local(v) => -(v + 1 + 6) * 8,
-                    Location::GlobalVar(_) => todo!(),
+                    Location::Local(v) => format!("{}(%rbp)", -(v + 1 + 6) * 8),
+                    Location::GlobalVar(_) => format!("gvar_{}(%rip)", var.name.name),
                 };
 
                 output += &format!(
-                    "    movq %rax, {}(%rbp) // store it in {}\n",
+                    "    movq %rax, {} // store it in {}\n",
                     rbp_offset, var.name.name
                 );
             }
@@ -617,7 +607,7 @@ impl Compilable for AssignmentStatement {
                 );
 
                 // 3. write to element
-                output += &format!("    movq %r9, (%rdi, %rax, 8)\n");
+                output += "    movq %r9, (%rdi, %rax, 8)\n";
             }
         };
 
@@ -775,8 +765,8 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         "GLOBAL_LIST" => {
             let globals = args
                 .into_iter()
-                .map(TryInto::try_into)
-                .map(Result::unwrap)
+                .map(TryInto::<Vec<Globals>>::try_into)
+                .flat_map(Result::unwrap)
                 .collect();
 
             Node::GlobalList(globals)

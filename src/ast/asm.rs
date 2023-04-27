@@ -28,16 +28,14 @@ impl ParsedProgram {
                         },
                     );
                 }
-                Globals::Declaration(ref decl_list) => {
-                    for decl in &decl_list.names {
-                        table.insert(
-                            decl.name.clone(),
-                            GlobalSymbol {
-                                name: decl.name.clone(),
-                                node: g.clone(), // reference to declaration
-                            },
-                        );
-                    }
+                Globals::VarDeclaration(ref decl) => {
+                    table.insert(
+                        decl.name.clone(),
+                        GlobalSymbol {
+                            name: decl.name.clone(),
+                            node: g.clone(), // reference to declaration
+                        },
+                    );
                 }
                 Globals::ArrayDeclaration(ref array) => {
                     table.insert(
@@ -83,7 +81,20 @@ impl ParsedProgram {
         });
 
         for garr in global_arrays {
-            output += &format!("\n\ngvar_{}: .zero {}\n", garr.name.name, garr.len * 8);
+            output += &format!("\n\ngarray{}: .zero {}\n", garr.name.name, garr.len * 8);
+        }
+
+        for v in &globals {
+            println!("Some stuff: {:?}", v);
+        }
+
+        let global_vars = globals.values().filter_map(|g| match g.node {
+            Globals::VarDeclaration(ref d) => Some(d),
+            _ => None,
+        });
+
+        for gvar in global_vars {
+            output += &format!("\n\ngvar_{}: .zero 8\n", gvar.name);
         }
 
         output
