@@ -35,7 +35,7 @@ macro_rules! leaq {
 #[macro_export]
 macro_rules! xorq {
     ($($arg:tt)*) => {
-        Helper::Emit("xorg ".to_string() + &format!($($arg)*))
+        Helper::Emit("xorq ".to_string() + &format!($($arg)*))
     };
 }
 
