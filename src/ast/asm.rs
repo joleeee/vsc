@@ -2,7 +2,7 @@ use std::{collections::HashMap, io::Write};
 
 use crate::ast::{BlockChild, Statement};
 
-use super::{Function, Globals, Node, ParsedProgram};
+use super::{Function, Globals, ParsedProgram};
 use crate::ast::types::Compilable;
 
 #[derive(Debug)]
@@ -73,7 +73,7 @@ impl ParsedProgram {
     }
 
     fn vars(&self) -> String {
-        const FUN_PROLOGUE: &'static str = r#"
+        const FUN_PROLOGUE: &str = r#"
     // prologue
     pushq %rbp // save stack ptr
 	movq %rsp, %rbp
@@ -85,7 +85,7 @@ impl ParsedProgram {
 	pushq %r9
 "#;
 
-        const FUN_EPILOGUE: &'static str = r#"
+        const FUN_EPILOGUE: &str = r#"
     // epilogue
     movq %rbp, %rsp // reset stack ptr
 	popq %rbp
@@ -127,7 +127,7 @@ impl ParsedProgram {
             }
 
             // body
-            output += compile_body(&f, &globals).as_str();
+            output += compile_body(f, &globals).as_str();
 
             // prologue
             output += "\n    movq $0, %rax // default return value\n";
@@ -206,7 +206,7 @@ ABORT:
     }
 }
 
-fn compile_body(function: &Function, globals: &HashMap<String, GlobalSymbol>) -> String {
+fn compile_body(function: &Function, _globals: &HashMap<String, GlobalSymbol>) -> String {
     let block = &function.block;
 
     let statement_lists = block.children.iter().filter_map(|c| match c {
@@ -218,25 +218,15 @@ fn compile_body(function: &Function, globals: &HashMap<String, GlobalSymbol>) ->
 
     let mut out = String::new();
 
-    println!("a");
     for st in statements {
         dbg!(&st);
-        match st {
-            Statement::Assignment(a) => {
-                let r = a.compile(function);
-                out += &r;
-            }
-            Statement::Print(p) => {
-                let r = p.compile(function);
-                out += &r;
-            }
+        out += &match st {
+            Statement::Assignment(a) => a.compile(function),
+            Statement::Print(p) => p.compile(function),
             //Statement::If(_) => todo!(),
             //Statement::Block(_) => todo!(),
-            Statement::Return(r) => {
-                out += &r.compile(function);
-            }
-            //_ => todo!(),
-            _ => (),
+            Statement::Return(r) => r.compile(function),
+            _ => todo!(),
         }
     }
 

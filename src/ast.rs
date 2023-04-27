@@ -134,7 +134,7 @@ pub fn parse() -> ParsedProgram {
 
     let mut parts = symbols.split("\n == ");
 
-    let global_table = parts.next().unwrap();
+    let _global_table = parts.next().unwrap();
 
     let string_table = parts.next().unwrap();
     let string_table = string_table

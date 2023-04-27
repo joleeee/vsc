@@ -315,7 +315,7 @@ impl Expression {
 
                 // put into right registers
                 for (i, _) in arguments.iter().enumerate().rev() {
-                    const REGISTERS: [&'static str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+                    const REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
                     output += &format!("    popq %{}\n", REGISTERS[i]);
                 }
@@ -447,40 +447,40 @@ pub struct PrintStatement {
 }
 
 impl Compilable for PrintStatement {
-    fn compile(&self, function: &Function) -> String {
+    fn compile(&self, _function: &Function) -> String {
         let mut output = String::new();
-        output += &format!("    // print\n");
+        output += "    // print\n";
 
         for arg in &self.args {
             match arg {
                 Node::Expression(e) => {
                     output += &e.compile();
 
-                    output += &format!("    movq %rax, %rsi\n");
-                    output += &format!("    xorq %rax, %rax\n");
-                    output += &format!("    leaq intout(%rip), %rdi\n");
+                    output += "    movq %rax, %rsi\n";
+                    output += "    xorq %rax, %rax\n";
+                    output += "    leaq intout(%rip), %rdi\n";
                 }
                 Node::LocatedIdentifier(lid) => {
                     output += &Expression::Variable(lid.clone()).compile();
 
-                    output += &format!("    movq %rax, %rsi\n");
-                    output += &format!("    xorq %rax, %rax\n");
-                    output += &format!("    leaq intout(%rip), %rdi\n");
+                    output += "    movq %rax, %rsi\n";
+                    output += "    xorq %rax, %rax\n";
+                    output += "    leaq intout(%rip), %rdi\n";
                 }
                 //Node::NumberData(_) => todo!(),
                 Node::StringData(sidx) => {
-                    output += &format!("    leaq strout(%rip), %rdi\n");
+                    output += "    leaq strout(%rip), %rdi\n";
                     output += &format!("    leaq string{:04}(%rip), %rsi\n", sidx);
                 }
                 _ => todo!(),
             };
 
-            output += &format!("    call printf\n\n");
+            output += "    call printf\n\n";
         }
 
         // terminating endline
-        output += &format!("    movq $'\\n', %rdi\n");
-        output += &format!("    call putchar\n\n");
+        output += "    movq $'\\n', %rdi\n";
+        output += "    call putchar\n\n";
 
         output
     }
@@ -561,7 +561,7 @@ pub struct AssignmentStatement {
 }
 
 impl Compilable for AssignmentStatement {
-    fn compile(&self, function: &Function) -> String {
+    fn compile(&self, _function: &Function) -> String {
         let mut output = String::new();
 
         // 1. evaluate the expression
