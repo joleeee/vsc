@@ -141,7 +141,7 @@ impl ParsedProgram {
             }
 
             // body
-            compile_body(f, &f.block, &mut out);
+            f.block.compile(f, &mut out);
 
             // prologue
             out.write_all(b"\n    movq $0, %rax // default return value\n")
@@ -289,25 +289,5 @@ ABORT:
 .globl _main
 "#;
         out.write_all(FOOTER).unwrap();
-    }
-}
-
-fn compile_body<W: Write>(function: &Function, block: &Block, out: &mut W) {
-    let statement_lists = block.children.iter().filter_map(|c| match c {
-        BlockChild::StatementList(ref s) => Some(s),
-        _ => None,
-    });
-
-    let statements = statement_lists.flatten();
-
-    for st in statements {
-        match st {
-            Statement::Assignment(a) => a.compile(function, out),
-            Statement::Print(p) => p.compile(function, out),
-            //Statement::If(_) => todo!(),
-            Statement::Block(b) => compile_body(function, b, out),
-            Statement::Return(r) => r.compile(function, out),
-            _ => todo!(),
-        }
     }
 }

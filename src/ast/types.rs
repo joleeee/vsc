@@ -126,6 +126,27 @@ impl Block {
 
         vars
     }
+
+    pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        let statement_lists = self.children.iter().filter_map(|c| match c {
+            BlockChild::StatementList(ref s) => Some(s),
+            _ => None,
+        });
+
+        let statements = statement_lists.flatten();
+
+        for st in statements {
+            match st {
+                Statement::Assignment(a) => a.compile(function, out),
+                Statement::Print(p) => p.compile(function, out),
+                //Statement::If(_) => todo!(),
+                Statement::Block(b) => b.compile(function, out),
+                Statement::Return(r) => r.compile(function, out),
+                Statement::While(w) => w.compile(function, out),
+                _ => todo!(),
+            }
+        }
+    }
 }
 
 impl TryFrom<Node> for BlockChild {
