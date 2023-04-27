@@ -1,5 +1,9 @@
 use super::Field;
 
+pub trait Compilable {
+    fn compile(&self, function: &Function) -> String;
+}
+
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub name: String,
@@ -137,7 +141,17 @@ impl TryFrom<Node> for Block {
 }
 
 #[derive(Debug, Clone)]
-struct ReturnStatement(Expression);
+pub struct ReturnStatement(Expression);
+impl ReturnStatement {
+    pub fn compile(&self, function: &Function) -> String {
+        let mut output = String::new();
+
+        output += &self.0.compile();
+        output += &format!("    jmp fun_ret_{}", function.name.name);
+
+        output
+    }
+}
 
 impl TryFrom<Node> for ReturnStatement {
     type Error = NodeExtractError;
@@ -207,7 +221,7 @@ pub struct Declaration {
 }
 
 #[derive(Debug, Clone)]
-enum Expression {
+pub enum Expression {
     Variable(LocatedIdentifier),
     Constant(i64),
     Array(ArrayIndexing),
@@ -221,6 +235,100 @@ enum Expression {
 
     // other
     Call(LocatedIdentifier, Vec<LocatedIdentifier>),
+}
+impl Expression {
+    fn compile(&self) -> String {
+        let mut output = String::new();
+
+        output += "    // expression\n";
+
+        match self {
+            Expression::Variable(lid) => {
+                let rbp_offset = match lid.location {
+                    Location::Parameter(l) => -(l + 1) * 8,
+                    Location::GlobalArray(_) | Location::Function(_) => {
+                        panic!("Cannot print a whole array or function.")
+                    }
+                    Location::Local(v) => -(v + 1 + 6) * 8,
+                    _ => todo!(),
+                };
+
+                output += &format!("    movq {}(%rbp), %rax\n", rbp_offset);
+            }
+            Expression::Constant(n) => {
+                output += &format!("    movq ${}, %rax\n", n);
+            }
+            //Expression::Array(_) => todo!(),
+            Expression::Add(a, b) => {
+                output += &a.compile();
+                output += "    pushq %rax\n";
+                output += &b.compile();
+                output += "    popq %rdi\n";
+
+                output += "    addq %rdi, %rax\n";
+            }
+            Expression::Minus(a, b) => {
+                output += &a.compile();
+                output += "    pushq %rax\n";
+                output += &b.compile();
+                output += "    popq %rdi\n";
+
+                output += "    subq %rax, %rdi\n";
+                output += "    movq %rdi, %rax\n";
+            }
+            Expression::Multiply(a, b) => {
+                output += &a.compile();
+                output += "    pushq %rax\n";
+                output += &b.compile();
+                output += "    popq %rdi\n";
+
+                output += "    imulq %rdi, %rax\n";
+            }
+            Expression::Divide(a, b) => {
+                output += &a.compile();
+                output += "    pushq %rax\n";
+                output += &b.compile();
+                output += "    popq %rdi\n";
+
+                // numerator has to be in %rbx + %rax
+                // denominator wherever
+
+                // stupid but works, just swap them around first
+                // should really have just swapped them around in the first
+                // place, but this works
+                output += "    movq %rdi, %r11\n"; // rdi -> r11
+                output += "    movq %rax, %rdi\n"; // rax -> rdi
+                output += "    movq %r11, %rax\n"; // r11 -> rax
+
+                // rdx must be zero, holds upper bits
+                output += "    movq %rdx, %rbx\n";
+                output += "    cqto\n";
+                output += "    idivq %rdi\n";
+            }
+            //Expression::Negative(_) => todo!(),
+            Expression::Call(func, arguments) => {
+                // evaluate all arguments
+                for (i, arg) in arguments.iter().enumerate() {
+                    output += &Expression::Variable(arg.clone()).compile();
+                    output += &format!("    pushq %rax // save evald {}th arg\n", i);
+                }
+
+                // put into right registers
+                for (i, _) in arguments.iter().enumerate().rev() {
+                    const REGISTERS: [&'static str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
+                    output += &format!("    popq %{}\n", REGISTERS[i]);
+                }
+
+                // actual call
+                output += &format!("    call fun_{}\n", func.name.name);
+            }
+            _ => todo!(),
+            //_ => eprintln!("Not handled {:?}", self),
+        }
+
+        output
+    }
 }
 
 impl TryFrom<Node> for Expression {
@@ -288,7 +396,7 @@ pub enum Node {
 }
 
 #[derive(Debug, Clone)]
-enum Statement {
+pub enum Statement {
     Assignment(AssignmentStatement),
     Print(PrintStatement),
     If(IfStatement),
@@ -333,9 +441,49 @@ impl TryFrom<Node> for ArgumentList {
 }
 
 #[derive(Debug, Clone)]
-struct PrintStatement {
+pub struct PrintStatement {
     //args: Vec<(Identifier, Location)>,
-    args: Vec<Node>,
+    pub args: Vec<Node>,
+}
+
+impl Compilable for PrintStatement {
+    fn compile(&self, function: &Function) -> String {
+        let mut output = String::new();
+        output += &format!("    // print\n");
+
+        for arg in &self.args {
+            match arg {
+                Node::Expression(e) => {
+                    output += &e.compile();
+
+                    output += &format!("    movq %rax, %rsi\n");
+                    output += &format!("    xorq %rax, %rax\n");
+                    output += &format!("    leaq intout(%rip), %rdi\n");
+                }
+                Node::LocatedIdentifier(lid) => {
+                    output += &Expression::Variable(lid.clone()).compile();
+
+                    output += &format!("    movq %rax, %rsi\n");
+                    output += &format!("    xorq %rax, %rax\n");
+                    output += &format!("    leaq intout(%rip), %rdi\n");
+                }
+                //Node::NumberData(_) => todo!(),
+                Node::StringData(sidx) => {
+                    output += &format!("    leaq strout(%rip), %rdi\n");
+                    output += &format!("    leaq string{:04}(%rip), %rsi\n", sidx);
+                }
+                _ => todo!(),
+            };
+
+            output += &format!("    call printf\n\n");
+        }
+
+        // terminating endline
+        output += &format!("    movq $'\\n', %rdi\n");
+        output += &format!("    call putchar\n\n");
+
+        output
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -389,7 +537,7 @@ impl TryFrom<Node> for Relation {
 }
 
 #[derive(Debug, Clone)]
-enum Assignee {
+pub enum Assignee {
     Variable(LocatedIdentifier),
     Array(ArrayIndexing),
 }
@@ -407,9 +555,40 @@ impl TryFrom<Node> for Assignee {
 }
 
 #[derive(Debug, Clone)]
-struct AssignmentStatement {
+pub struct AssignmentStatement {
     left: Assignee,
     right: Expression,
+}
+
+impl Compilable for AssignmentStatement {
+    fn compile(&self, function: &Function) -> String {
+        let mut output = String::new();
+
+        // 1. evaluate the expression
+        output += &self.right.compile();
+
+        // 2. move to the right place
+        let var = match &self.left {
+            Assignee::Variable(v) => v,
+            Assignee::Array(_) => todo!(),
+        };
+
+        let rbp_offset = match var.location {
+            Location::Parameter(l) => -(l + 1) * 8,
+            Location::GlobalArray(_) | Location::Function(_) => {
+                panic!("Cannot write to whole array or function.")
+            }
+            Location::Local(v) => -(v + 1 + 6) * 8,
+            _ => todo!(),
+        };
+
+        output += &format!(
+            "    movq %rax, {}(%rbp) // store it in {}\n",
+            rbp_offset, var.name.name
+        );
+
+        output
+    }
 }
 
 pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {

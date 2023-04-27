@@ -130,7 +130,7 @@ pub struct ParsedProgram {
 }
 
 pub fn parse() -> ParsedProgram {
-    let symbols = std::fs::read_to_string("programs/locals.symbols").unwrap();
+    let symbols = std::fs::read_to_string("programs/callframes.symbols").unwrap();
 
     let mut parts = symbols.split("\n == ");
 

@@ -1,6 +1,9 @@
 use std::{collections::HashMap, io::Write};
 
-use super::{Globals, Node, ParsedProgram};
+use crate::ast::{BlockChild, Statement};
+
+use super::{Function, Globals, Node, ParsedProgram};
+use crate::ast::types::Compilable;
 
 #[derive(Debug)]
 struct GlobalSymbol {
@@ -58,7 +61,12 @@ impl ParsedProgram {
     fn strings(&self) -> String {
         let mut output = String::new();
         for (i, s) in self.string_table.iter().enumerate() {
-            output += format!(r##"string{:04}:    .aciz "{}""##, i, s).as_str();
+            output += format!(
+                r##"string{:04}:    .asciz "{}"
+"##,
+                i, s
+            )
+            .as_str();
         }
 
         output
@@ -98,6 +106,12 @@ impl ParsedProgram {
             output += format!("\n\nfun_{}:", f.name.name).as_str();
             output += FUN_PROLOGUE;
 
+            // TODO FIX
+            // dummy space since paramters offset the variable indicies
+            for _ in 0..f.parameters.len() {
+                output += "    pushq $0 // dummy space\n";
+            }
+
             // make space for variables
             let vars_list = f.block.recursive_vars();
             let mut var_count = 0;
@@ -111,6 +125,9 @@ impl ParsedProgram {
                     var_count += 1;
                 }
             }
+
+            // body
+            output += compile_body(&f, &globals).as_str();
 
             // prologue
             output += "\n    movq $0, %rax // default return value\n";
@@ -135,12 +152,46 @@ errout: .asciz "Wrong number of arguments"
 
 .data
 .align 8
+
+.text
 "#;
 
         out.write_all(DATA).unwrap();
         out.write_all(self.vars().as_bytes()).unwrap();
 
         const FOOTER: &[u8] = br#"
+.globl main
+main:
+    pushq %rbp
+    movq %rsp, %rbp
+    subq $1, %rdi
+    cmpq $2, %rdi
+    jne ABORT
+    addq $16, %rsi
+    movq %rdi, %rcx
+PARSE_ARGV:
+    pushq %rsi
+    pushq %rcx
+    movq (%rsi), %rdi
+    movq $0, %rsi
+    movq $10, %rdx
+    call strtol
+    popq %rcx
+    popq %rsi
+    pushq %rax
+    subq $8, %rsi
+    loop PARSE_ARGV
+    popq %rdi
+    popq %rsi
+    call fun_main
+    movq %rax, %rdi
+    call exit
+ABORT:
+    leaq errout(%rip), %rdi
+    call puts
+    movq $1, %rdi
+    call exit
+
 
 # macOS stuff
 .set exit, _exit
@@ -153,4 +204,43 @@ errout: .asciz "Wrong number of arguments"
 "#;
         out.write_all(FOOTER).unwrap();
     }
+}
+
+fn compile_body(function: &Function, globals: &HashMap<String, GlobalSymbol>) -> String {
+    let block = &function.block;
+
+    let statement_lists = block.children.iter().filter_map(|c| match c {
+        BlockChild::StatementList(ref s) => Some(s),
+        _ => None,
+    });
+
+    let statements = statement_lists.flatten();
+
+    let mut out = String::new();
+
+    println!("a");
+    for st in statements {
+        dbg!(&st);
+        match st {
+            Statement::Assignment(a) => {
+                let r = a.compile(function);
+                out += &r;
+            }
+            Statement::Print(p) => {
+                let r = p.compile(function);
+                out += &r;
+            }
+            //Statement::If(_) => todo!(),
+            //Statement::Block(_) => todo!(),
+            Statement::Return(r) => {
+                out += &r.compile(function);
+            }
+            //_ => todo!(),
+            _ => (),
+        }
+    }
+
+    // then
+
+    out
 }
