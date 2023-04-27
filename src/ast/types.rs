@@ -1,6 +1,8 @@
 use std::io::Write;
 
-use super::{asm::Helper::*, Field};
+use crate::{call, emit, jmp, label, leaq, movq, xorq};
+
+use super::{asm::Helper, Field};
 
 pub trait Compilable {
     fn compile<W: Write>(&self, function: &Function, out: &mut W);
@@ -178,8 +180,7 @@ pub struct ReturnStatement(Expression);
 impl ReturnStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
         out.write_all(self.0.compile().as_bytes()).unwrap();
-        out.write_all(format!("    jmp fun_ret_{}", function.name.name).as_bytes())
-            .unwrap();
+        jmp!("fun_ret_{}", function.name.name).compile(out);
     }
 }
 
@@ -492,54 +493,52 @@ impl TryFrom<Node> for ArgumentList {
 
 #[derive(Debug, Clone)]
 pub struct PrintStatement {
-    //args: Vec<(Identifier, Location)>,
     pub args: Vec<Node>,
 }
 
 impl Compilable for PrintStatement {
     fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
-        out.write_all(b"    // print\n").unwrap();
+        emit!("// print").compile(out);
 
         for arg in &self.args {
             match arg {
                 Node::Expression(e) => {
                     out.write_all(e.compile().as_bytes()).unwrap();
 
-                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
-                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
-                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
+                    movq!("%rax, %rsi").compile(out);
+                    xorq!("%rax, %rax").compile(out);
+                    leaq!("intout(%rip), %rdi").compile(out);
                 }
                 Node::LocatedIdentifier(lid) => {
                     out.write_all(Expression::Variable(lid.clone()).compile().as_bytes())
                         .unwrap();
 
-                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
-                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
-                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
+                    movq!("%rax, %rsi").compile(out);
+                    xorq!("%rax, %rax").compile(out);
+                    leaq!("intout(%rip), %rdi").compile(out);
                 }
                 //Node::NumberData(_) => todo!(),
                 Node::StringData(sidx) => {
-                    out.write_all(b"    leaq strout(%rip), %rdi\n").unwrap();
-                    out.write_all(format!("    leaq string{:04}(%rip), %rsi\n", sidx).as_bytes())
-                        .unwrap();
+                    leaq!("strout(%rip), %rdi").compile(out);
+                    leaq!("string{sidx:04}(%rip), %rsi").compile(out);
                 }
                 Node::ArrayIndexing(ai) => {
                     out.write_all(Expression::Array(ai.clone()).compile().as_bytes())
                         .unwrap();
 
-                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
-                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
-                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
+                    movq!("%rax, %rsi").compile(out);
+                    xorq!("%rax, %rax").compile(out);
+                    leaq!("intout(%rip), %rdi").compile(out);
                 }
                 _ => todo!(),
             };
 
-            out.write_all(b"    call printf\n\n").unwrap();
+            call!("printf").compile(out);
         }
 
         // terminating endline
-        out.write_all(b"    movq $'\\n', %rdi\n").unwrap();
-        out.write_all(b"    call putchar\n\n").unwrap();
+        movq!("$'\\n', %rdi").compile(out);
+        call!("putchar").compile(out);
     }
 }
 
@@ -551,7 +550,8 @@ pub struct IfStatement {
 }
 impl IfStatement {
     fn compile<W: Write>(&self, function: &Function, out: &mut W) {
-        out.write_all(b"\n    //if statement\n").unwrap();
+        emit!("").compile(out);
+        emit!("// if statement").compile(out);
 
         let nonce = rand::random::<u16>();
 
@@ -570,20 +570,20 @@ impl IfStatement {
             Some(_) => format!("IF_ELSE{}", nonce),
             None => format!("IF_END{}", nonce),
         };
-        Emit(format!("{inverse_instruction} {fail_label}")).compile(out);
+        emit!("{inverse_instruction} {fail_label}").compile(out);
 
         // otherwise run body
         self.statement.compile(function, out);
-        Jmp(format!("IF_END{nonce}")).compile(out);
+        jmp!("IF_END{nonce}").compile(out);
 
         // compile else if it exists
         if let Some(else_statement) = &self.else_statement {
-            Label(format!("IF_ELSE{nonce}")).compile(out);
+            label!("IF_ELSE{nonce}").compile(out);
             else_statement.compile(function, out);
         }
 
         // end label
-        Label(format!("IF_END{nonce}")).compile(out);
+        label!("IF_END{nonce}").compile(out);
     }
 }
 
@@ -723,34 +723,20 @@ impl Compilable for AssignmentStatement {
                     Location::GlobalVar(_) => format!("{}(%rip)", var.name.as_global_var()),
                 };
 
-                out.write_all(
-                    format!(
-                        "    movq %rax, {} // store it in {}\n",
-                        rbp_offset, var.name.name
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
+                movq!("%rax, {} // store it in {}", rbp_offset, var.name.name).compile(out);
             }
             Assignee::Array(array_indexing) => {
-                out.write_all(b"    mov %rax, %r9\n").unwrap(); // r9 := expression
+                movq!("%rax, %r9").compile(out); // r9 := expression
 
                 // 1. evaluate index
                 out.write_all(array_indexing.idx.compile().as_bytes())
                     .unwrap();
 
                 // 2. load base
-                out.write_all(
-                    format!(
-                        "    leaq {}(%rip), %rdi\n",
-                        array_indexing.name.name.as_global_arr()
-                    )
-                    .as_bytes(),
-                )
-                .unwrap();
+                leaq!("{}(%rip), %rdi", array_indexing.name.name.as_global_arr()).compile(out);
 
                 // 3. write to element
-                out.write_all(b"    movq %r9, (%rdi, %rax, 8)\n").unwrap();
+                movq!("%r9, (%rdi, %rax, 8)").compile(out);
             }
         };
     }
