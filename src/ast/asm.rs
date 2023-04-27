@@ -153,16 +153,17 @@ impl ParsedProgram {
     }
 
     pub fn compile<W: Write>(&self, mut out: W) {
-        const TEXT: &[u8] = br#".section __TEXT,__text
+        const TEXT_SECTION: &[u8] = br#".section __TEXT,__text
+"#;
+        const TEXT: &[u8] = br#"
 intout: .asciz "%lld "
 strout: .asciz "%s "
 errout: .asciz "Wrong number of arguments"
 
 "#;
-        out.write_all(TEXT).unwrap();
+        out.write_all(TEXT_SECTION).unwrap();
 
         const DATA: &[u8] = br#"
-
 .data
 .align 8
 
@@ -174,6 +175,7 @@ errout: .asciz "Wrong number of arguments"
 "#;
 
         out.write_all(DATA).unwrap();
+        out.write_all(TEXT).unwrap();
         self.strings(&mut out);
         self.gvars(&mut out);
 
