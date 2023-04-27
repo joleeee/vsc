@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use super::Field;
+use super::{asm::Helper::*, Field};
 
 pub trait Compilable {
     fn compile<W: Write>(&self, function: &Function, out: &mut W);
@@ -570,25 +570,20 @@ impl IfStatement {
             Some(_) => format!("IF_ELSE{}", nonce),
             None => format!("IF_END{}", nonce),
         };
-        out.write_all(format!("    {inverse_instruction} {fail_label}\n").as_bytes())
-            .unwrap();
+        Emit(format!("{inverse_instruction} {fail_label}")).compile(out);
 
         // otherwise run body
         self.statement.compile(function, out);
-        // then jump to end
-        out.write_all(format!("    jmp IF_END{nonce}\n").as_bytes())
-            .unwrap();
+        Jmp(format!("IF_END{nonce}")).compile(out);
 
         // compile else if it exists
         if let Some(else_statement) = &self.else_statement {
-            out.write_all(format!("    IF_ELSE{nonce}:\n").as_bytes())
-                .unwrap();
+            Label(format!("IF_ELSE{nonce}")).compile(out);
             else_statement.compile(function, out);
         }
 
         // end label
-        out.write_all(format!("    IF_END{nonce}:\n").as_bytes())
-            .unwrap();
+        Label(format!("IF_END{nonce}")).compile(out);
     }
 }
 
