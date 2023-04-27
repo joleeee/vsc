@@ -2,7 +2,7 @@ use std::io::Write;
 
 use crate::ast::{BlockChild, Statement};
 
-use super::{Function, Globals, ParsedProgram};
+use super::{Block, Function, Globals, ParsedProgram};
 use crate::ast::types::Compilable;
 
 #[derive(Debug)]
@@ -144,7 +144,7 @@ impl ParsedProgram {
             }
 
             // body
-            output += compile_body(f, &globals).as_str();
+            output += compile_body(f, &f.block, &globals).as_str();
 
             // prologue
             output += "\n    movq $0, %rax // default return value\n";
@@ -295,9 +295,7 @@ ABORT:
     }
 }
 
-fn compile_body(function: &Function, _globals: &[GlobalSymbol]) -> String {
-    let block = &function.block;
-
+fn compile_body(function: &Function, block: &Block, _globals: &[GlobalSymbol]) -> String {
     let statement_lists = block.children.iter().filter_map(|c| match c {
         BlockChild::StatementList(ref s) => Some(s),
         _ => None,
@@ -312,7 +310,7 @@ fn compile_body(function: &Function, _globals: &[GlobalSymbol]) -> String {
             Statement::Assignment(a) => a.compile(function),
             Statement::Print(p) => p.compile(function),
             //Statement::If(_) => todo!(),
-            //Statement::Block(_) => todo!(),
+            Statement::Block(b) => compile_body(function, b, _globals),
             Statement::Return(r) => r.compile(function),
             _ => todo!(),
         }
