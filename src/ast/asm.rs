@@ -7,7 +7,7 @@ use crate::ast::types::Compilable;
 
 #[derive(Debug)]
 struct GlobalSymbol {
-    name: String,
+    _name: String,
     node: Globals,
 }
 
@@ -21,19 +21,19 @@ impl ParsedProgram {
             match g {
                 Globals::Function(ref function) => {
                     vec.push(GlobalSymbol {
-                        name: function.name.name.clone(),
+                        _name: function.name.name.clone(),
                         node: g.clone(),
                     });
                 }
                 Globals::VarDeclaration(ref decl) => {
                     vec.push(GlobalSymbol {
-                        name: decl.name.clone(),
+                        _name: decl.name.clone(),
                         node: g.clone(), // reference to declaration
                     });
                 }
                 Globals::ArrayDeclaration(ref array) => {
                     vec.push(GlobalSymbol {
-                        name: array.name.name.clone(),
+                        _name: array.name.name.clone(),
                         node: g.clone(),
                     });
                 }
