@@ -175,7 +175,7 @@ impl TryFrom<Node> for Block {
 pub struct ReturnStatement(Expression);
 impl ReturnStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
-        out.write_all(self.0.compile().as_bytes()).unwrap();
+        self.0.compile(out);
         jmp!("fun_ret_{}", function.name.name).compile(out);
     }
 }
@@ -253,10 +253,8 @@ pub enum Expression {
     Call(LocatedIdentifier, Vec<LocatedIdentifier>),
 }
 impl Expression {
-    fn compile(&self) -> String {
-        let mut output = String::new();
-
-        output += "    // expression\n";
+    fn compile<W: Write>(&self, out: &mut W) {
+        emit!("// expression").compile(out);
 
         match self {
             Expression::Variable(lid) => {
@@ -269,41 +267,41 @@ impl Expression {
                     Location::GlobalVar(_) => format!("{}(%rip)", lid.name.as_global_var()),
                 };
 
-                output += &format!("    movq {}, %rax\n", rbp_offset);
+                movq!("{}, %rax", rbp_offset).compile(out);
             }
             Expression::Constant(n) => {
-                output += &format!("    movq ${}, %rax\n", n);
+                movq!("${}, %rax", n).compile(out);
             }
             Expression::Add(a, b) => {
-                output += &a.compile();
-                output += "    pushq %rax\n";
-                output += &b.compile();
-                output += "    popq %rdi\n";
+                a.compile(out);
+                emit!("pushq %rax").compile(out);
+                b.compile(out);
+                emit!("popq %rdi").compile(out);
 
-                output += "    addq %rdi, %rax\n";
+                emit!("addq %rdi, %rax").compile(out);
             }
             Expression::Minus(a, b) => {
-                output += &a.compile();
-                output += "    pushq %rax\n";
-                output += &b.compile();
-                output += "    popq %rdi\n";
+                a.compile(out);
+                emit!("pushq %rax").compile(out);
+                b.compile(out);
+                emit!("popq %rdi").compile(out);
 
-                output += "    subq %rax, %rdi\n";
-                output += "    movq %rdi, %rax\n";
+                emit!("subq %rax, %rdi").compile(out);
+                emit!("movq %rdi, %rax").compile(out);
             }
             Expression::Multiply(a, b) => {
-                output += &a.compile();
-                output += "    pushq %rax\n";
-                output += &b.compile();
-                output += "    popq %rdi\n";
+                a.compile(out);
+                emit!("pushq %rax").compile(out);
+                b.compile(out);
+                emit!("popq %rdi").compile(out);
 
-                output += "    imulq %rdi, %rax\n";
+                emit!("imulq %rdi, %rax").compile(out);
             }
             Expression::Divide(a, b) => {
-                output += &a.compile();
-                output += "    pushq %rax\n";
-                output += &b.compile();
-                output += "    popq %rdi\n";
+                a.compile(out);
+                emit!("pushq %rax").compile(out);
+                b.compile(out);
+                emit!("popq %rdi").compile(out);
 
                 // numerator has to be in %rbx + %rax
                 // denominator wherever
@@ -311,52 +309,47 @@ impl Expression {
                 // stupid but works, just swap them around first
                 // should really have just swapped them around in the first
                 // place, but this works
-                output += "    movq %rdi, %r11\n"; // rdi -> r11
-                output += "    movq %rax, %rdi\n"; // rax -> rdi
-                output += "    movq %r11, %rax\n"; // r11 -> rax
+                emit!("movq %rdi, %r11").compile(out);
+                emit!("movq %rax, %rdi").compile(out);
+                emit!("movq %r11, %rax").compile(out);
 
                 // rdx must be zero, holds upper bits
-                output += "    movq %rdx, %rbx\n";
-                output += "    cqto\n";
-                output += "    idivq %rdi\n";
+                emit!("movq %rdx, %rbx").compile(out);
+                emit!("cqto").compile(out);
+                emit!("idivq %rdi").compile(out);
             }
             Expression::Negative(a) => {
-                output += &a.compile();
-                output += "    negq %rax\n";
+                a.compile(out);
+                emit!("negq %rax").compile(out);
             }
             Expression::Call(func, arguments) => {
                 // evaluate all arguments
                 for (i, arg) in arguments.iter().enumerate() {
-                    output += &Expression::Variable(arg.clone()).compile();
-                    output += &format!("    pushq %rax // save evald {}th arg\n", i);
+                    Expression::Variable(arg.clone()).compile(out);
+                    emit!("pushq %rax // save evald {}th arg\n", i).compile(out);
                 }
 
                 // put into right registers
                 for (i, _) in arguments.iter().enumerate().rev() {
                     const REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 
-                    output += &format!("    popq %{}\n", REGISTERS[i]);
+                    emit!("popq %{}\n", REGISTERS[i]).compile(out);
                 }
 
                 // actual call
-                output += &format!("    call fun_{}\n", func.name.name);
+                call!("fun_{}", func.name.name).compile(out);
             }
             Expression::Array(array_indexing) => {
                 // 1. evaluate index
-                output += &array_indexing.idx.compile();
+                array_indexing.idx.compile(out);
 
                 // 2. load base
-                output += &format!(
-                    "    leaq {}(%rip), %rdi\n",
-                    array_indexing.name.name.as_global_arr()
-                );
+                leaq!("{}(%rip), %rdi", array_indexing.name.name.as_global_arr()).compile(out);
 
                 // 3. get element
-                output += "    movq (%rdi, %rax, 8), %rax\n";
+                movq!("(%rdi, %rax, 8), %rax").compile(out);
             }
         }
-
-        output
     }
 }
 
@@ -526,15 +519,14 @@ impl Compilable for PrintStatement {
         for arg in &self.args {
             match arg {
                 Node::Expression(e) => {
-                    out.write_all(e.compile().as_bytes()).unwrap();
+                    e.compile(out);
 
                     movq!("%rax, %rsi").compile(out);
                     xorq!("%rax, %rax").compile(out);
                     leaq!("intout(%rip), %rdi").compile(out);
                 }
                 Node::LocatedIdentifier(lid) => {
-                    out.write_all(Expression::Variable(lid.clone()).compile().as_bytes())
-                        .unwrap();
+                    Expression::Variable(lid.clone()).compile(out);
 
                     movq!("%rax, %rsi").compile(out);
                     xorq!("%rax, %rax").compile(out);
@@ -546,8 +538,7 @@ impl Compilable for PrintStatement {
                     leaq!("string{sidx:04}(%rip), %rsi").compile(out);
                 }
                 Node::ArrayIndexing(ai) => {
-                    out.write_all(Expression::Array(ai.clone()).compile().as_bytes())
-                        .unwrap();
+                    Expression::Array(ai.clone()).compile(out);
 
                     movq!("%rax, %rsi").compile(out);
                     xorq!("%rax, %rax").compile(out);
@@ -684,10 +675,10 @@ pub struct Relation {
 impl Relation {
     // cmpq the two expressions
     fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
-        out.write_all(self.left.compile().as_bytes()).unwrap();
+        self.left.compile(out);
         out.write_all(b"    pushq %rax\n").unwrap();
 
-        out.write_all(self.right.compile().as_bytes()).unwrap();
+        self.right.compile(out);
         out.write_all(b"    popq %rdi\n").unwrap();
 
         // rdi: left
@@ -735,7 +726,7 @@ pub struct AssignmentStatement {
 impl Compilable for AssignmentStatement {
     fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
         // 1. evaluate the expression
-        out.write_all(self.right.compile().as_bytes()).unwrap();
+        self.right.compile(out);
 
         // 2. move to the right place
         match &self.left {
@@ -755,8 +746,7 @@ impl Compilable for AssignmentStatement {
                 movq!("%rax, %r9").compile(out); // r9 := expression
 
                 // 1. evaluate index
-                out.write_all(array_indexing.idx.compile().as_bytes())
-                    .unwrap();
+                array_indexing.idx.compile(out);
 
                 // 2. load base
                 leaq!("{}(%rip), %rdi", array_indexing.name.name.as_global_arr()).compile(out);
