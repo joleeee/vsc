@@ -1,7 +1,9 @@
+use std::io::Write;
+
 use super::Field;
 
 pub trait Compilable {
-    fn compile(&self, function: &Function) -> String;
+    fn compile<W: Write>(&self, function: &Function, out: &mut W);
 }
 
 #[derive(Debug, Clone)]
@@ -153,13 +155,10 @@ impl TryFrom<Node> for Block {
 #[derive(Debug, Clone)]
 pub struct ReturnStatement(Expression);
 impl ReturnStatement {
-    pub fn compile(&self, function: &Function) -> String {
-        let mut output = String::new();
-
-        output += &self.0.compile();
-        output += &format!("    jmp fun_ret_{}", function.name.name);
-
-        output
+    pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        out.write_all(self.0.compile().as_bytes()).unwrap();
+        out.write_all(format!("    jmp fun_ret_{}", function.name.name).as_bytes())
+            .unwrap();
     }
 }
 
@@ -460,49 +459,49 @@ pub struct PrintStatement {
 }
 
 impl Compilable for PrintStatement {
-    fn compile(&self, _function: &Function) -> String {
-        let mut output = String::new();
-        output += "    // print\n";
+    fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
+        out.write_all(b"    // print\n").unwrap();
 
         for arg in &self.args {
             match arg {
                 Node::Expression(e) => {
-                    output += &e.compile();
+                    out.write_all(e.compile().as_bytes()).unwrap();
 
-                    output += "    movq %rax, %rsi\n";
-                    output += "    xorq %rax, %rax\n";
-                    output += "    leaq intout(%rip), %rdi\n";
+                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
+                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
+                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
                 }
                 Node::LocatedIdentifier(lid) => {
-                    output += &Expression::Variable(lid.clone()).compile();
+                    out.write_all(Expression::Variable(lid.clone()).compile().as_bytes())
+                        .unwrap();
 
-                    output += "    movq %rax, %rsi\n";
-                    output += "    xorq %rax, %rax\n";
-                    output += "    leaq intout(%rip), %rdi\n";
+                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
+                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
+                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
                 }
                 //Node::NumberData(_) => todo!(),
                 Node::StringData(sidx) => {
-                    output += "    leaq strout(%rip), %rdi\n";
-                    output += &format!("    leaq string{:04}(%rip), %rsi\n", sidx);
+                    out.write_all(b"    leaq strout(%rip), %rdi\n").unwrap();
+                    out.write_all(format!("    leaq string{:04}(%rip), %rsi\n", sidx).as_bytes())
+                        .unwrap();
                 }
                 Node::ArrayIndexing(ai) => {
-                    output += &Expression::Array(ai.clone()).compile();
+                    out.write_all(Expression::Array(ai.clone()).compile().as_bytes())
+                        .unwrap();
 
-                    output += "    movq %rax, %rsi\n";
-                    output += "    xorq %rax, %rax\n";
-                    output += "    leaq intout(%rip), %rdi\n";
+                    out.write_all(b"    movq %rax, %rsi\n").unwrap();
+                    out.write_all(b"    xorq %rax, %rax\n").unwrap();
+                    out.write_all(b"    leaq intout(%rip), %rdi\n").unwrap();
                 }
                 _ => todo!(),
             };
 
-            output += "    call printf\n\n";
+            out.write_all(b"    call printf\n\n").unwrap();
         }
 
         // terminating endline
-        output += "    movq $'\\n', %rdi\n";
-        output += "    call putchar\n\n";
-
-        output
+        out.write_all(b"    movq $'\\n', %rdi\n").unwrap();
+        out.write_all(b"    call putchar\n\n").unwrap();
     }
 }
 
@@ -581,11 +580,9 @@ pub struct AssignmentStatement {
 }
 
 impl Compilable for AssignmentStatement {
-    fn compile(&self, _function: &Function) -> String {
-        let mut output = String::new();
-
+    fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
         // 1. evaluate the expression
-        output += &self.right.compile();
+        out.write_all(self.right.compile().as_bytes()).unwrap();
 
         // 2. move to the right place
         match &self.left {
@@ -599,29 +596,35 @@ impl Compilable for AssignmentStatement {
                     Location::GlobalVar(_) => format!("{}(%rip)", var.name.as_global_var()),
                 };
 
-                output += &format!(
-                    "    movq %rax, {} // store it in {}\n",
-                    rbp_offset, var.name.name
-                );
+                out.write_all(
+                    format!(
+                        "    movq %rax, {} // store it in {}\n",
+                        rbp_offset, var.name.name
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
             }
             Assignee::Array(array_indexing) => {
-                output += "    mov %rax, %r9\n"; // r9 := expression
+                out.write_all(b"    mov %rax, %r9\n").unwrap(); // r9 := expression
 
                 // 1. evaluate index
-                output += &array_indexing.idx.compile();
+                out.write_all(array_indexing.idx.compile().as_bytes()).unwrap();
 
                 // 2. load base
-                output += &format!(
-                    "    leaq {}(%rip), %rdi\n",
-                    array_indexing.name.name.as_global_arr()
-                );
+                out.write_all(
+                    format!(
+                        "    leaq {}(%rip), %rdi\n",
+                        array_indexing.name.name.as_global_arr()
+                    )
+                    .as_bytes(),
+                )
+                .unwrap();
 
                 // 3. write to element
-                output += "    movq %r9, (%rdi, %rax, 8)\n";
+                out.write_all(b"    movq %r9, (%rdi, %rax, 8)\n").unwrap();
             }
         };
-
-        output
     }
 }
 

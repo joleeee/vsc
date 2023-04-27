@@ -43,23 +43,21 @@ impl ParsedProgram {
         vec
     }
 
-    fn strings(&self) -> String {
-        let mut output = String::new();
+    fn strings<W: Write>(&self, mut out: W) {
         for (i, s) in self.string_table.iter().enumerate() {
-            output += format!(
-                r##"string{:04}:    .asciz "{}"
+            out.write_all(
+                format!(
+                    r##"string{:04}:    .asciz "{}"
 "##,
-                i, s
+                    i, s
+                )
+                .as_bytes(),
             )
-            .as_str();
+            .unwrap();
         }
-
-        output
     }
 
-    fn gvars(&self) -> String {
-        let mut output = String::new();
-
+    fn gvars<W: Write>(&self, mut out: W) {
         let globals = self.globals();
 
         let global_arrays = globals.iter().filter_map(|g| match g.node {
@@ -67,9 +65,12 @@ impl ParsedProgram {
             _ => None,
         });
 
-        output += "\n//global arrays\n";
+        out.write_all(b"\n//global arrays\n").unwrap();
         for garr in global_arrays {
-            output += &format!("{}: .zero {}\n", garr.name.as_global_arr(), garr.len * 8);
+            out.write_all(
+                format!("{}: .zero {}\n", garr.name.as_global_arr(), garr.len * 8).as_bytes(),
+            )
+            .unwrap();
         }
 
         let global_vars = globals.iter().filter_map(|g| match g.node {
@@ -78,13 +79,12 @@ impl ParsedProgram {
         });
 
         for gvar in global_vars {
-            output += &format!("\n\n{}: .zero 8\n", gvar.as_global_var());
+            out.write_all(format!("\n\n{}: .zero 8\n", gvar.as_global_var()).as_bytes())
+                .unwrap();
         }
-
-        output
     }
 
-    fn functions(&self) -> String {
+    fn functions<W: Write>(&self, mut out: W) {
         const FUN_PROLOGUE: &str = r#"
     // prologue
     pushq %rbp // save stack ptr
@@ -104,8 +104,6 @@ impl ParsedProgram {
 	ret
 "#;
 
-        let mut output = String::new();
-
         let globals = self.globals();
         let functions = globals.iter().filter_map(|g| match g.node {
             Globals::Function(ref f) => Some(f),
@@ -115,13 +113,14 @@ impl ParsedProgram {
         // recursively go through blocks to find all variables
         for f in functions {
             // epilogue
-            output += format!("\n\nfun_{}:", f.name.name).as_str();
-            output += FUN_PROLOGUE;
+            out.write_all(format!("\n\nfun_{}:", f.name.name).as_bytes())
+                .unwrap();
+            out.write_all(FUN_PROLOGUE.as_bytes()).unwrap();
 
             // TODO FIX
             // dummy space since paramters offset the variable indicies
             for _ in 0..f.parameters.len() {
-                output += "    pushq $0 // dummy space\n";
+                out.write_all(b"    pushq $0 // dummy space\n").unwrap();
             }
 
             // make space for variables
@@ -129,25 +128,28 @@ impl ParsedProgram {
             let mut var_count = 0;
             for (block_i, vars) in vars_list.into_iter().enumerate() {
                 for var in vars {
-                    output += format!(
-                        "    pushq $0 // {} ({}) (block {})\n",
-                        var.name, var_count, block_i
+                    out.write_all(
+                        format!(
+                            "    pushq $0 // {} ({}) (block {})\n",
+                            var.name, var_count, block_i
+                        )
+                        .as_bytes(),
                     )
-                    .as_str();
+                    .unwrap();
                     var_count += 1;
                 }
             }
 
             // body
-            output += compile_body(f, &f.block, &globals).as_str();
+            compile_body(f, &f.block, &mut out);
 
             // prologue
-            output += "\n    movq $0, %rax // default return value\n";
-            output += format!("fun_ret_{}:", f.name.name).as_str();
-            output += FUN_EPILOGUE;
+            out.write_all(b"\n    movq $0, %rax // default return value\n")
+                .unwrap();
+            out.write_all(format!("fun_ret_{}:", f.name.name).as_bytes())
+                .unwrap();
+            out.write_all(FUN_EPILOGUE.as_bytes()).unwrap();
         }
-
-        output
     }
 
     pub fn compile<W: Write>(&self, mut out: W) {
@@ -158,7 +160,7 @@ errout: .asciz "Wrong number of arguments"
 
 "#;
         out.write_all(TEXT).unwrap();
-        out.write_all(self.strings().as_bytes()).unwrap();
+        self.strings(&mut out);
 
         const DATA: &[u8] = br#"
 
@@ -173,10 +175,10 @@ errout: .asciz "Wrong number of arguments"
 "#;
 
         out.write_all(DATA).unwrap();
-        out.write_all(self.gvars().as_bytes()).unwrap();
+        self.gvars(&mut out);
 
         out.write_all(CODE).unwrap();
-        out.write_all(self.functions().as_bytes()).unwrap();
+        self.functions(&mut out);
 
         // main helper
         out.write_all(b"\n\n").unwrap();
@@ -290,7 +292,7 @@ ABORT:
     }
 }
 
-fn compile_body(function: &Function, block: &Block, _globals: &[GlobalSymbol]) -> String {
+fn compile_body<W: Write>(function: &Function, block: &Block, out: &mut W) {
     let statement_lists = block.children.iter().filter_map(|c| match c {
         BlockChild::StatementList(ref s) => Some(s),
         _ => None,
@@ -298,20 +300,14 @@ fn compile_body(function: &Function, block: &Block, _globals: &[GlobalSymbol]) -
 
     let statements = statement_lists.flatten();
 
-    let mut out = String::new();
-
     for st in statements {
-        out += &match st {
-            Statement::Assignment(a) => a.compile(function),
-            Statement::Print(p) => p.compile(function),
+        match st {
+            Statement::Assignment(a) => a.compile(function, out),
+            Statement::Print(p) => p.compile(function, out),
             //Statement::If(_) => todo!(),
-            Statement::Block(b) => compile_body(function, b, _globals),
-            Statement::Return(r) => r.compile(function),
+            Statement::Block(b) => compile_body(function, b, out),
+            Statement::Return(r) => r.compile(function, out),
             _ => todo!(),
         }
     }
-
-    // then
-
-    out
 }
