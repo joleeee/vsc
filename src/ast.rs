@@ -1,6 +1,9 @@
 mod asm;
 mod types;
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    io::{self, Read},
+};
 
 pub use types::*;
 
@@ -130,7 +133,14 @@ pub struct ParsedProgram {
 }
 
 pub fn parse() -> ParsedProgram {
-    let symbols = std::fs::read_to_string("programs/callframes.symbols").unwrap();
+    // read entire stdin
+    let symbols = {
+        let stdin = io::stdin();
+        let mut stdin = stdin.lock();
+        let mut symbols = Vec::new();
+        stdin.read_to_end(&mut symbols).unwrap();
+        String::from_utf8(symbols).unwrap()
+    };
 
     let mut parts = symbols.split("\n == ");
 
