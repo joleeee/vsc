@@ -487,7 +487,11 @@ impl Compilable for PrintStatement {
                 }
                 Node::ArrayIndexing(ai) => {
                     output += &Expression::Array(ai.clone()).compile();
-                },
+
+                    output += "    movq %rax, %rsi\n";
+                    output += "    xorq %rax, %rax\n";
+                    output += "    leaq intout(%rip), %rdi\n";
+                }
                 _ => todo!(),
             };
 
