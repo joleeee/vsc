@@ -139,7 +139,7 @@ impl Block {
             match st {
                 Statement::Assignment(a) => a.compile(function, out),
                 Statement::Print(p) => p.compile(function, out),
-                //Statement::If(_) => todo!(),
+                Statement::If(i) => i.compile(function, out),
                 Statement::Block(b) => b.compile(function, out),
                 Statement::Return(r) => r.compile(function, out),
                 Statement::While(w) => w.compile(function, out),
@@ -426,6 +426,8 @@ pub enum Node {
 
     Relation(Relation),
     IfStatement(IfStatement),
+    WhileStatement(WhileStatement),
+    BreakStatement,
 }
 
 #[derive(Debug, Clone)]
@@ -435,6 +437,20 @@ pub enum Statement {
     If(IfStatement),
     Block(Block),
     Return(ReturnStatement),
+    While(WhileStatement),
+}
+
+impl Compilable for Statement {
+    fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        match self {
+            Statement::Assignment(_) => todo!(),
+            Statement::Print(p) => p.compile(function, out),
+            Statement::If(i) => i.compile(function, out),
+            Statement::Block(b) => b.compile(function, out),
+            Statement::Return(_) => todo!(),
+            Statement::While(_) => todo!(),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -452,6 +468,7 @@ impl TryFrom<Node> for Statement {
             Node::IfStatement(s) => Ok(Self::If(s)),
             Node::Block(s) => Ok(Self::Block(s)),
             Node::ReturnStatement(s) => Ok(Self::Return(s)),
+            Node::WhileStatement(w) => Ok(Self::While(w)),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -530,6 +547,85 @@ impl Compilable for PrintStatement {
 pub struct IfStatement {
     condition: Relation,
     statement: Box<Statement>,
+    else_statement: Option<Box<Statement>>,
+}
+impl IfStatement {
+    fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        out.write_all(b"\n    //if statement\n").unwrap();
+
+        let nonce = rand::random::<u16>();
+
+        self.condition.compile(function, out);
+
+        let inverse_instruction = match self.condition.operator {
+            '>' => "jle",
+            '<' => "jge",
+            '=' => "jne",
+            '!' => "je",
+            _ => todo!("unknown operator {}", self.condition.operator),
+        };
+
+        // jump to else, if condition failed (or end if there is no else)
+        let fail_label = match &self.else_statement {
+            Some(_) => format!("IF_ELSE{}", nonce),
+            None => format!("IF_END{}", nonce),
+        };
+        out.write_all(format!("    {inverse_instruction} {fail_label}\n").as_bytes())
+            .unwrap();
+
+        // otherwise run body
+        self.statement.compile(function, out);
+        // then jump to end
+        out.write_all(format!("    jmp IF_END{nonce}\n").as_bytes())
+            .unwrap();
+
+        // compile else if it exists
+        if let Some(else_statement) = &self.else_statement {
+            out.write_all(format!("    IF_ELSE{nonce}:\n").as_bytes())
+                .unwrap();
+            else_statement.compile(function, out);
+        }
+
+        // end label
+        out.write_all(format!("    IF_END{nonce}:\n").as_bytes())
+            .unwrap();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStatement {
+    condition: Relation,
+    statement: Block,
+}
+impl WhileStatement {
+    pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        out.write_all(b"\n\n// while statement\n").unwrap();
+
+        out.write_all(b"WHILE_START:\n").unwrap();
+
+        // should end up with a cmp
+        self.condition.compile(function, out);
+
+        let inverse_instruction = match self.condition.operator {
+            '>' => "jle",
+            '<' => "jge",
+            '=' => "jne",
+            _ => todo!(),
+        };
+
+        // jump to end if condition failed
+        out.write_all(format!("    {}, WHILE_DONE\n", inverse_instruction).as_bytes())
+            .unwrap();
+
+        // otherwise, run the body
+        self.statement.compile(function, out);
+
+        // then jump up again
+        out.write_all(b"    jmp WHILE_START\n").unwrap();
+
+        // and when done, continue:
+        out.write_all(b"    WHILE_DONE:\n").unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -563,6 +659,21 @@ pub struct Relation {
     left: Expression,
     right: Expression,
     operator: char, // TODO
+}
+impl Relation {
+    // cmpq the two expressions
+    fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
+        out.write_all(self.left.compile().as_bytes()).unwrap();
+        out.write_all(b"    pushq %rax\n").unwrap();
+
+        out.write_all(self.right.compile().as_bytes()).unwrap();
+        out.write_all(b"    popq %rdi\n").unwrap();
+
+        // rdi: left
+        // rax: right
+
+        out.write_all(b"    cmpq %rax, %rdi\n").unwrap();
+    }
 }
 
 impl TryFrom<Node> for Relation {
@@ -756,10 +867,12 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         "IF_STATEMENT" => {
             let relation: Relation = args[0].clone().try_into().unwrap();
             let statement: Statement = args[1].clone().try_into().unwrap();
+            let else_statement: Option<Statement> = args[2].clone().try_into().ok();
 
             Node::IfStatement(IfStatement {
                 condition: relation,
                 statement: Box::new(statement),
+                else_statement: else_statement.map(Box::new),
             })
         }
         "STATEMENT_LIST" => {
@@ -839,6 +952,16 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
 
             Node::ReturnStatement(ReturnStatement(exp))
         }
+        "WHILE_STATEMENT" => {
+            let condition: Relation = args[0].clone().try_into().unwrap();
+            let statement: Block = args[1].clone().try_into().unwrap();
+
+            Node::WhileStatement(WhileStatement {
+                condition,
+                statement,
+            })
+        }
+        "BREAK_STATEMENT" => Node::BreakStatement,
         _ => panic!("Unknown type {}", name),
     };
 }
