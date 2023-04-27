@@ -485,6 +485,9 @@ impl Compilable for PrintStatement {
                     output += "    leaq strout(%rip), %rdi\n";
                     output += &format!("    leaq string{:04}(%rip), %rsi\n", sidx);
                 }
+                Node::ArrayIndexing(ai) => {
+                    output += &Expression::Array(ai.clone()).compile();
+                },
                 _ => todo!(),
             };
 
@@ -581,24 +584,38 @@ impl Compilable for AssignmentStatement {
         output += &self.right.compile();
 
         // 2. move to the right place
-        let var = match &self.left {
-            Assignee::Variable(v) => v,
-            Assignee::Array(_) => todo!(),
-        };
+        match &self.left {
+            Assignee::Variable(var) => {
+                let rbp_offset = match var.location {
+                    Location::Parameter(l) => -(l + 1) * 8,
+                    Location::GlobalArray(_) | Location::Function(_) => {
+                        panic!("Cannot write to whole array or function.")
+                    }
+                    Location::Local(v) => -(v + 1 + 6) * 8,
+                    Location::GlobalVar(_) => todo!(),
+                };
 
-        let rbp_offset = match var.location {
-            Location::Parameter(l) => -(l + 1) * 8,
-            Location::GlobalArray(_) | Location::Function(_) => {
-                panic!("Cannot write to whole array or function.")
+                output += &format!(
+                    "    movq %rax, {}(%rbp) // store it in {}\n",
+                    rbp_offset, var.name.name
+                );
             }
-            Location::Local(v) => -(v + 1 + 6) * 8,
-            _ => todo!(),
-        };
+            Assignee::Array(array_indexing) => {
+                output += "    mov %rax, %r9"; // r9 := expression
 
-        output += &format!(
-            "    movq %rax, {}(%rbp) // store it in {}\n",
-            rbp_offset, var.name.name
-        );
+                // 1. evaluate index
+                output += &array_indexing.idx.compile();
+
+                // 2. load base
+                output += &format!(
+                    "    leaq gvar_{}(%rip), %rdi\n",
+                    array_indexing.name.name.name
+                );
+
+                // 3. write to element
+                output += &format!("    movq %r9, (%rdi, %rax, 8)\n");
+            }
+        };
 
         output
     }
