@@ -1,3 +1,4 @@
 /target
-
 *.s
+*.dSYM/
+.DS_Store
