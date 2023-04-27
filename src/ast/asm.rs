@@ -70,7 +70,7 @@ impl ParsedProgram {
         });
 
         for garr in global_arrays {
-            output += &format!("\n\ngarray{}: .zero {}\n", garr.name.name, garr.len * 8);
+            output += &format!("\n\ngarray_{}: .zero {}\n", garr.name.name, garr.len * 8);
         }
 
         for v in &globals {

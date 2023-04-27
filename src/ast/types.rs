@@ -320,7 +320,7 @@ impl Expression {
 
                 // 2. load base
                 output += &format!(
-                    "    leaq gvar_{}(%rip), %rdi\n",
+                    "    leaq garray_{}(%rip), %rdi\n",
                     array_indexing.name.name.name
                 );
 
@@ -602,7 +602,7 @@ impl Compilable for AssignmentStatement {
 
                 // 2. load base
                 output += &format!(
-                    "    leaq gvar_{}(%rip), %rdi\n",
+                    "    leaq garray_{}(%rip), %rdi\n",
                     array_indexing.name.name.name
                 );
 
