@@ -593,32 +593,35 @@ pub struct WhileStatement {
 }
 impl WhileStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
-        out.write_all(b"\n\n// while statement\n").unwrap();
+        emit!("").compile(out);
+        emit!("// while statement").compile(out);
 
-        out.write_all(b"WHILE_START:\n").unwrap();
-
-        // should end up with a cmp
-        self.condition.compile(function, out);
+        let nonce = rand::random::<u16>();
 
         let inverse_instruction = match self.condition.operator {
             '>' => "jle",
             '<' => "jge",
             '=' => "jne",
-            _ => todo!(),
+            '!' => "je",
+            _ => todo!("unknown operator {}", self.condition.operator),
         };
 
+        label!("WHILE_START{nonce}").compile(out);
+
+        // should end up with a cmp
+        self.condition.compile(function, out);
+
         // jump to end if condition failed
-        out.write_all(format!("    {}, WHILE_DONE\n", inverse_instruction).as_bytes())
-            .unwrap();
+        emit!("{inverse_instruction} WHILE_DONE{nonce}").compile(out);
 
         // otherwise, run the body
         self.statement.compile(function, out);
 
         // then jump up again
-        out.write_all(b"    jmp WHILE_START\n").unwrap();
+        jmp!("WHILE_START{nonce}").compile(out);
 
         // and when done, continue:
-        out.write_all(b"    WHILE_DONE:\n").unwrap();
+        label!("WHILE_DONE{nonce}").compile(out);
     }
 }
 
@@ -722,7 +725,7 @@ impl Compilable for AssignmentStatement {
                     Location::GlobalVar(_) => format!("{}(%rip)", var.name.as_global_var()),
                 };
 
-                movq!("%rax, {} // store it in {}", rbp_offset, var.name.name).compile(out);
+                movq!("%rax, {} // -> {}", rbp_offset, var.name.name).compile(out);
             }
             Assignee::Array(array_indexing) => {
                 movq!("%rax, %r9").compile(out); // r9 := expression
