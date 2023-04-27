@@ -609,7 +609,8 @@ impl Compilable for AssignmentStatement {
                 out.write_all(b"    mov %rax, %r9\n").unwrap(); // r9 := expression
 
                 // 1. evaluate index
-                out.write_all(array_indexing.idx.compile().as_bytes()).unwrap();
+                out.write_all(array_indexing.idx.compile().as_bytes())
+                    .unwrap();
 
                 // 2. load base
                 out.write_all(
