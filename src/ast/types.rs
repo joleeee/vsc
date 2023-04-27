@@ -601,7 +601,7 @@ impl Compilable for AssignmentStatement {
                 );
             }
             Assignee::Array(array_indexing) => {
-                output += "    mov %rax, %r9"; // r9 := expression
+                output += "    mov %rax, %r9\n"; // r9 := expression
 
                 // 1. evaluate index
                 output += &array_indexing.idx.compile();
