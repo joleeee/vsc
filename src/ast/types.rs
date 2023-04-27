@@ -874,7 +874,8 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         "IF_STATEMENT" => {
             let relation: Relation = args[0].clone().try_into().unwrap();
             let statement: Statement = args[1].clone().try_into().unwrap();
-            let else_statement: Option<Statement> = args[2].clone().try_into().ok();
+            let else_statement: Option<Statement> =
+                args.get(2).map(|v| v.clone().try_into().unwrap());
 
             Node::IfStatement(IfStatement {
                 condition: relation,
