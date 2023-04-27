@@ -1,0 +1,28 @@
+func happy_numbers()
+begin
+    var num, sum, tmp, rem, stop
+    num := 1
+    while num < 83 do
+    begin
+        sum  := num
+        stop := 0
+        while stop = 0 do
+        begin
+            tmp := sum
+            rem := 0
+            sum := 0
+            while tmp > 0 do
+            begin
+                rem := tmp / 10
+                rem := tmp - rem * 10
+                sum := sum + rem * rem
+                tmp := tmp / 10
+            end
+            if sum = 1 then stop := 1
+            if sum = 4 then stop := 1
+        end
+        if sum = 1 then print num
+        num := num + 1
+    end
+    return 0
+end

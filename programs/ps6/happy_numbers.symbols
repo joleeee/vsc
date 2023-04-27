@@ -1,0 +1,110 @@
+0: FUNCTION(happy_numbers)
+    0: LOCAL_VAR(num)
+    1: LOCAL_VAR(sum)
+    2: LOCAL_VAR(tmp)
+    3: LOCAL_VAR(rem)
+    4: LOCAL_VAR(stop)
+
+ == STRING LIST == 
+
+ == BOUND SYNTAX TREE == 
+GLOBAL_LIST
+ FUNCTION
+  IDENTIFIER_DATA(happy_numbers)
+  PARAMETER_LIST
+  BLOCK
+   DECLARATION_LIST
+    DECLARATION
+     IDENTIFIER_DATA(num)
+     IDENTIFIER_DATA(sum)
+     IDENTIFIER_DATA(tmp)
+     IDENTIFIER_DATA(rem)
+     IDENTIFIER_DATA(stop)
+   STATEMENT_LIST
+    ASSIGNMENT_STATEMENT
+     IDENTIFIER_DATA(num) LOCAL_VAR(0)
+     NUMBER_DATA(1)
+    WHILE_STATEMENT
+     RELATION(<)
+      IDENTIFIER_DATA(num) LOCAL_VAR(0)
+      NUMBER_DATA(83)
+     BLOCK
+      STATEMENT_LIST
+       ASSIGNMENT_STATEMENT
+        IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+        IDENTIFIER_DATA(num) LOCAL_VAR(0)
+       ASSIGNMENT_STATEMENT
+        IDENTIFIER_DATA(stop) LOCAL_VAR(4)
+        NUMBER_DATA(0)
+       WHILE_STATEMENT
+        RELATION(=)
+         IDENTIFIER_DATA(stop) LOCAL_VAR(4)
+         NUMBER_DATA(0)
+        BLOCK
+         STATEMENT_LIST
+          ASSIGNMENT_STATEMENT
+           IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+           IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+          ASSIGNMENT_STATEMENT
+           IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+           NUMBER_DATA(0)
+          ASSIGNMENT_STATEMENT
+           IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+           NUMBER_DATA(0)
+          WHILE_STATEMENT
+           RELATION(>)
+            IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+            NUMBER_DATA(0)
+           BLOCK
+            STATEMENT_LIST
+             ASSIGNMENT_STATEMENT
+              IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+              EXPRESSION(/)
+               IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+               NUMBER_DATA(10)
+             ASSIGNMENT_STATEMENT
+              IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+              EXPRESSION(-)
+               IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+               EXPRESSION(*)
+                IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+                NUMBER_DATA(10)
+             ASSIGNMENT_STATEMENT
+              IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+              EXPRESSION(+)
+               IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+               EXPRESSION(*)
+                IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+                IDENTIFIER_DATA(rem) LOCAL_VAR(3)
+             ASSIGNMENT_STATEMENT
+              IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+              EXPRESSION(/)
+               IDENTIFIER_DATA(tmp) LOCAL_VAR(2)
+               NUMBER_DATA(10)
+          IF_STATEMENT
+           RELATION(=)
+            IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+            NUMBER_DATA(1)
+           ASSIGNMENT_STATEMENT
+            IDENTIFIER_DATA(stop) LOCAL_VAR(4)
+            NUMBER_DATA(1)
+          IF_STATEMENT
+           RELATION(=)
+            IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+            NUMBER_DATA(4)
+           ASSIGNMENT_STATEMENT
+            IDENTIFIER_DATA(stop) LOCAL_VAR(4)
+            NUMBER_DATA(1)
+       IF_STATEMENT
+        RELATION(=)
+         IDENTIFIER_DATA(sum) LOCAL_VAR(1)
+         NUMBER_DATA(1)
+        PRINT_STATEMENT
+         IDENTIFIER_DATA(num) LOCAL_VAR(0)
+       ASSIGNMENT_STATEMENT
+        IDENTIFIER_DATA(num) LOCAL_VAR(0)
+        EXPRESSION(+)
+         IDENTIFIER_DATA(num) LOCAL_VAR(0)
+         NUMBER_DATA(1)
+    RETURN_STATEMENT
+     NUMBER_DATA(0)
