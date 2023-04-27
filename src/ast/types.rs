@@ -9,6 +9,16 @@ pub struct Identifier {
     pub name: String,
 }
 
+impl Identifier {
+    pub fn as_global_var(&self) -> String {
+        format!("gvar_{}", self.name)
+    }
+
+    pub fn as_global_arr(&self) -> String {
+        format!("garray_{}", self.name)
+    }
+}
+
 impl TryFrom<Node> for Identifier {
     type Error = NodeExtractError;
 
@@ -239,7 +249,7 @@ impl Expression {
                         panic!("Cannot print a whole array or function.")
                     }
                     Location::Local(v) => format!("{}(%rbp)", -(v + 1 + 6) * 8),
-                    Location::GlobalVar(_) => format!("gvar_{}(%rip)", lid.name.name),
+                    Location::GlobalVar(_) => format!("{}(%rip)", lid.name.as_global_var()),
                 };
 
                 output += &format!("    movq {}, %rax\n", rbp_offset);
@@ -320,8 +330,8 @@ impl Expression {
 
                 // 2. load base
                 output += &format!(
-                    "    leaq garray_{}(%rip), %rdi\n",
-                    array_indexing.name.name.name
+                    "    leaq {}(%rip), %rdi\n",
+                    array_indexing.name.name.as_global_arr()
                 );
 
                 // 3. get element
@@ -586,7 +596,7 @@ impl Compilable for AssignmentStatement {
                         panic!("Cannot write to a whole array or function.")
                     }
                     Location::Local(v) => format!("{}(%rbp)", -(v + 1 + 6) * 8),
-                    Location::GlobalVar(_) => format!("gvar_{}(%rip)", var.name.name),
+                    Location::GlobalVar(_) => format!("{}(%rip)", var.name.as_global_var()),
                 };
 
                 output += &format!(
@@ -602,8 +612,8 @@ impl Compilable for AssignmentStatement {
 
                 // 2. load base
                 output += &format!(
-                    "    leaq garray_{}(%rip), %rdi\n",
-                    array_indexing.name.name.name
+                    "    leaq {}(%rip), %rdi\n",
+                    array_indexing.name.name.as_global_arr()
                 );
 
                 // 3. write to element

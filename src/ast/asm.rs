@@ -67,8 +67,9 @@ impl ParsedProgram {
             _ => None,
         });
 
+        output += "\n//global arrays\n";
         for garr in global_arrays {
-            output += &format!("\n\ngarray_{}: .zero {}\n", garr.name.name, garr.len * 8);
+            output += &format!("{}: .zero {}\n", garr.name.as_global_arr(), garr.len * 8);
         }
 
         let global_vars = globals.iter().filter_map(|g| match g.node {
@@ -77,7 +78,7 @@ impl ParsedProgram {
         });
 
         for gvar in global_vars {
-            output += &format!("\n\ngvar_{}: .zero 8\n", gvar.name);
+            output += &format!("\n\n{}: .zero 8\n", gvar.as_global_var());
         }
 
         output
