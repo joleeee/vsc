@@ -17,9 +17,7 @@ impl ParsedProgram {
 
         let mut vec = Vec::new();
 
-        println!("instance (globals: {})", globals.len());
         for g in globals {
-            println!("One: {:?}", g);
             match g {
                 Globals::Function(ref function) => {
                     vec.push(GlobalSymbol {
@@ -71,10 +69,6 @@ impl ParsedProgram {
 
         for garr in global_arrays {
             output += &format!("\n\ngarray_{}: .zero {}\n", garr.name.name, garr.len * 8);
-        }
-
-        for v in &globals {
-            println!("Some stuff: {:?}", v);
         }
 
         let global_vars = globals.iter().filter_map(|g| match g.node {
