@@ -145,7 +145,6 @@ impl Block {
                 Statement::Block(b) => b.compile(function, out),
                 Statement::Return(r) => r.compile(function, out),
                 Statement::While(w) => w.compile(function, out),
-                _ => todo!(),
             }
         }
     }

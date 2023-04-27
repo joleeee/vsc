@@ -3,10 +3,7 @@ pub use helper::Helper;
 
 use std::io::Write;
 
-use crate::ast::{BlockChild, Statement};
-
-use super::{Block, Function, Globals, ParsedProgram};
-use crate::ast::types::Compilable;
+use super::{Globals, ParsedProgram};
 
 #[derive(Debug)]
 struct GlobalSymbol {
