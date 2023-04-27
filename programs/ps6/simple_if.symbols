@@ -1,0 +1,56 @@
+0: FUNCTION(main)
+
+ == STRING LIST == 
+0: "You"
+1: "Are"
+2: "WRONG1"
+3: "WRONG2"
+4: "Getting"
+5: "WRONG3"
+6: "Correct"
+7: "WRONG4"
+8: "Output"
+
+ == BOUND SYNTAX TREE == 
+GLOBAL_LIST
+ FUNCTION
+  IDENTIFIER_DATA(main)
+  PARAMETER_LIST
+  BLOCK
+   STATEMENT_LIST
+    IF_STATEMENT
+     RELATION(=)
+      NUMBER_DATA(1)
+      NUMBER_DATA(1)
+     BLOCK
+      STATEMENT_LIST
+       PRINT_STATEMENT
+        STRING_DATA(#0)
+       IF_STATEMENT
+        RELATION(<)
+         NUMBER_DATA(1)
+         NUMBER_DATA(2)
+        PRINT_STATEMENT
+         STRING_DATA(#1)
+        PRINT_STATEMENT
+         STRING_DATA(#2)
+       IF_STATEMENT
+        RELATION(>)
+         NUMBER_DATA(-2)
+         NUMBER_DATA(1)
+        PRINT_STATEMENT
+         STRING_DATA(#3)
+        IF_STATEMENT
+         RELATION(!=)
+          NUMBER_DATA(1)
+          NUMBER_DATA(2)
+         PRINT_STATEMENT
+          STRING_DATA(#4)
+         PRINT_STATEMENT
+          STRING_DATA(#5)
+       PRINT_STATEMENT
+        STRING_DATA(#6)
+     PRINT_STATEMENT
+      STRING_DATA(#7)
+    PRINT_STATEMENT
+     STRING_DATA(#8)

@@ -1,0 +1,93 @@
+0: GLOBAL_ARRAY(sieve)
+1: FUNCTION(main)
+    0: LOCAL_VAR(i)
+    1: LOCAL_VAR(__FOR_END__)
+    2: LOCAL_VAR(j)
+    3: LOCAL_VAR(__FOR_END__)
+
+ == STRING LIST == 
+
+ == BOUND SYNTAX TREE == 
+GLOBAL_LIST
+ ARRAY_DECLARATION
+  IDENTIFIER_DATA(sieve)
+  NUMBER_DATA(1000)
+ FUNCTION
+  IDENTIFIER_DATA(main)
+  PARAMETER_LIST
+  BLOCK
+   STATEMENT_LIST
+    BLOCK
+     DECLARATION_LIST
+      DECLARATION
+       IDENTIFIER_DATA(i)
+       IDENTIFIER_DATA(__FOR_END__)
+     STATEMENT_LIST
+      ASSIGNMENT_STATEMENT
+       IDENTIFIER_DATA(i) LOCAL_VAR(0)
+       NUMBER_DATA(2)
+      ASSIGNMENT_STATEMENT
+       IDENTIFIER_DATA(__FOR_END__) LOCAL_VAR(1)
+       NUMBER_DATA(1000)
+      WHILE_STATEMENT
+       RELATION(<)
+        IDENTIFIER_DATA(i) LOCAL_VAR(0)
+        IDENTIFIER_DATA(__FOR_END__) LOCAL_VAR(1)
+       BLOCK
+        STATEMENT_LIST
+         BLOCK
+          STATEMENT_LIST
+           IF_STATEMENT
+            RELATION(=)
+             ARRAY_INDEXING
+              IDENTIFIER_DATA(sieve) GLOBAL_ARRAY(0)
+              IDENTIFIER_DATA(i) LOCAL_VAR(0)
+             NUMBER_DATA(0)
+            BLOCK
+             STATEMENT_LIST
+              PRINT_STATEMENT
+               IDENTIFIER_DATA(i) LOCAL_VAR(0)
+              BLOCK
+               DECLARATION_LIST
+                DECLARATION
+                 IDENTIFIER_DATA(j)
+                 IDENTIFIER_DATA(__FOR_END__)
+               STATEMENT_LIST
+                ASSIGNMENT_STATEMENT
+                 IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                 NUMBER_DATA(2)
+                ASSIGNMENT_STATEMENT
+                 IDENTIFIER_DATA(__FOR_END__) LOCAL_VAR(3)
+                 NUMBER_DATA(1000)
+                WHILE_STATEMENT
+                 RELATION(<)
+                  IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                  IDENTIFIER_DATA(__FOR_END__) LOCAL_VAR(3)
+                 BLOCK
+                  STATEMENT_LIST
+                   BLOCK
+                    STATEMENT_LIST
+                     IF_STATEMENT
+                      RELATION(>)
+                       EXPRESSION(*)
+                        IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                        IDENTIFIER_DATA(i) LOCAL_VAR(0)
+                       NUMBER_DATA(999)
+                      BREAK_STATEMENT
+                     ASSIGNMENT_STATEMENT
+                      ARRAY_INDEXING
+                       IDENTIFIER_DATA(sieve) GLOBAL_ARRAY(0)
+                       EXPRESSION(*)
+                        IDENTIFIER_DATA(i) LOCAL_VAR(0)
+                        IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                      NUMBER_DATA(1)
+                   ASSIGNMENT_STATEMENT
+                    IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                    EXPRESSION(+)
+                     IDENTIFIER_DATA(j) LOCAL_VAR(2)
+                     NUMBER_DATA(1)
+         ASSIGNMENT_STATEMENT
+          IDENTIFIER_DATA(i) LOCAL_VAR(0)
+          EXPRESSION(+)
+           IDENTIFIER_DATA(i) LOCAL_VAR(0)
+           NUMBER_DATA(1)

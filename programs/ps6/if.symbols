@@ -1,0 +1,71 @@
+0: FUNCTION(main)
+    0: PARAMETER(a)
+
+ == STRING LIST == 
+0: "a is less than 10"
+1: "a is more than -5"
+2: "a is less than or equal to -5"
+3: "a is equal to 5"
+4: "a is not equal to 0"
+5: "a is however 6"
+6: "a is however 7"
+7: "a is however 8"
+8: "a is neither 0, 6, 7 or 8, but"
+
+ == BOUND SYNTAX TREE == 
+GLOBAL_LIST
+ FUNCTION
+  IDENTIFIER_DATA(main)
+  PARAMETER_LIST
+   IDENTIFIER_DATA(a)
+  BLOCK
+   STATEMENT_LIST
+    IF_STATEMENT
+     RELATION(<)
+      IDENTIFIER_DATA(a) PARAMETER(0)
+      NUMBER_DATA(10)
+     PRINT_STATEMENT
+      STRING_DATA(#0)
+    IF_STATEMENT
+     RELATION(>)
+      IDENTIFIER_DATA(a) PARAMETER(0)
+      NUMBER_DATA(-5)
+     PRINT_STATEMENT
+      STRING_DATA(#1)
+     PRINT_STATEMENT
+      STRING_DATA(#2)
+    IF_STATEMENT
+     RELATION(=)
+      IDENTIFIER_DATA(a) PARAMETER(0)
+      NUMBER_DATA(5)
+     PRINT_STATEMENT
+      STRING_DATA(#3)
+    IF_STATEMENT
+     RELATION(!=)
+      IDENTIFIER_DATA(a) PARAMETER(0)
+      NUMBER_DATA(0)
+     BLOCK
+      STATEMENT_LIST
+       PRINT_STATEMENT
+        STRING_DATA(#4)
+       IF_STATEMENT
+        RELATION(=)
+         IDENTIFIER_DATA(a) PARAMETER(0)
+         NUMBER_DATA(6)
+        PRINT_STATEMENT
+         STRING_DATA(#5)
+        IF_STATEMENT
+         RELATION(=)
+          IDENTIFIER_DATA(a) PARAMETER(0)
+          NUMBER_DATA(7)
+         PRINT_STATEMENT
+          STRING_DATA(#6)
+         IF_STATEMENT
+          RELATION(=)
+           IDENTIFIER_DATA(a) PARAMETER(0)
+           NUMBER_DATA(8)
+          PRINT_STATEMENT
+           STRING_DATA(#7)
+          PRINT_STATEMENT
+           STRING_DATA(#8)
+           IDENTIFIER_DATA(a) PARAMETER(0)
