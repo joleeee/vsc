@@ -72,7 +72,24 @@ impl ParsedProgram {
         output
     }
 
-    fn vars(&self) -> String {
+    fn gvars(&self) -> String {
+        let mut output = String::new();
+
+        let globals = self.globals();
+
+        let global_arrays = globals.values().filter_map(|g| match g.node {
+            Globals::ArrayDeclaration(ref a) => Some(a),
+            _ => None,
+        });
+
+        for garr in global_arrays {
+            output += &format!("\n\ngvar_{}: .zero {}\n", garr.name.name, garr.len * 8);
+        }
+
+        output
+    }
+
+    fn functions(&self) -> String {
         const FUN_PROLOGUE: &str = r#"
     // prologue
     pushq %rbp // save stack ptr
@@ -153,11 +170,18 @@ errout: .asciz "Wrong number of arguments"
 .data
 .align 8
 
+"#;
+
+        const CODE: &[u8] = br#"
+
 .text
 "#;
 
         out.write_all(DATA).unwrap();
-        out.write_all(self.vars().as_bytes()).unwrap();
+        out.write_all(self.gvars().as_bytes()).unwrap();
+
+        out.write_all(CODE).unwrap();
+        out.write_all(self.functions().as_bytes()).unwrap();
 
         const FOOTER: &[u8] = br#"
 .globl main
