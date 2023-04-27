@@ -258,7 +258,6 @@ impl Expression {
             Expression::Constant(n) => {
                 output += &format!("    movq ${}, %rax\n", n);
             }
-            //Expression::Array(_) => todo!(),
             Expression::Add(a, b) => {
                 output += &a.compile();
                 output += "    pushq %rax\n";
@@ -308,7 +307,7 @@ impl Expression {
             Expression::Negative(a) => {
                 output += &a.compile();
                 output += "    negq %rax\n";
-            },
+            }
             Expression::Call(func, arguments) => {
                 // evaluate all arguments
                 for (i, arg) in arguments.iter().enumerate() {
@@ -326,7 +325,19 @@ impl Expression {
                 // actual call
                 output += &format!("    call fun_{}\n", func.name.name);
             }
-            _ => todo!(),
+            Expression::Array(array_indexing) => {
+                // 1. evaluate index
+                output += &array_indexing.idx.compile();
+
+                // 2. load base
+                output += &format!(
+                    "    leaq gvar_{}(%rip), %rdi\n",
+                    array_indexing.name.name.name
+                );
+
+                // 3. get element
+                output += &format!("    movq (%rdi, %rax, 8), %rax\n");
+            }
         }
 
         output
