@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write};
+use std::io::Write;
 
 use crate::ast::{BlockChild, Statement};
 
@@ -12,48 +12,37 @@ struct GlobalSymbol {
 }
 
 impl ParsedProgram {
-    fn globals(&self) -> HashMap<String, GlobalSymbol> {
+    fn globals(&self) -> Vec<GlobalSymbol> {
         let globals: Vec<Globals> = self.clone().root.try_into().unwrap();
 
-        let mut table = HashMap::new();
+        let mut vec = Vec::new();
 
+        println!("instance (globals: {})", globals.len());
         for g in globals {
+            println!("One: {:?}", g);
             match g {
                 Globals::Function(ref function) => {
-                    table.insert(
-                        function.name.name.clone(),
-                        GlobalSymbol {
-                            name: function.name.name.clone(),
-                            node: g.clone(),
-                        },
-                    );
+                    vec.push(GlobalSymbol {
+                        name: function.name.name.clone(),
+                        node: g.clone(),
+                    });
                 }
                 Globals::VarDeclaration(ref decl) => {
-                    table.insert(
-                        decl.name.clone(),
-                        GlobalSymbol {
-                            name: decl.name.clone(),
-                            node: g.clone(), // reference to declaration
-                        },
-                    );
+                    vec.push(GlobalSymbol {
+                        name: decl.name.clone(),
+                        node: g.clone(), // reference to declaration
+                    });
                 }
                 Globals::ArrayDeclaration(ref array) => {
-                    table.insert(
-                        array.name.name.clone(),
-                        GlobalSymbol {
-                            name: array.name.name.clone(),
-                            node: g.clone(),
-                        },
-                    );
+                    vec.push(GlobalSymbol {
+                        name: array.name.name.clone(),
+                        node: g.clone(),
+                    });
                 }
             };
         }
 
-        for t in &table {
-            println!("{}", t.0);
-        }
-
-        table
+        vec
     }
 
     fn strings(&self) -> String {
@@ -75,7 +64,7 @@ impl ParsedProgram {
 
         let globals = self.globals();
 
-        let global_arrays = globals.values().filter_map(|g| match g.node {
+        let global_arrays = globals.iter().filter_map(|g| match g.node {
             Globals::ArrayDeclaration(ref a) => Some(a),
             _ => None,
         });
@@ -88,7 +77,7 @@ impl ParsedProgram {
             println!("Some stuff: {:?}", v);
         }
 
-        let global_vars = globals.values().filter_map(|g| match g.node {
+        let global_vars = globals.iter().filter_map(|g| match g.node {
             Globals::VarDeclaration(ref d) => Some(d),
             _ => None,
         });
@@ -123,7 +112,7 @@ impl ParsedProgram {
         let mut output = String::new();
 
         let globals = self.globals();
-        let functions = globals.values().filter_map(|g| match g.node {
+        let functions = globals.iter().filter_map(|g| match g.node {
             Globals::Function(ref f) => Some(f),
             _ => None,
         });
@@ -194,33 +183,98 @@ errout: .asciz "Wrong number of arguments"
         out.write_all(CODE).unwrap();
         out.write_all(self.functions().as_bytes()).unwrap();
 
+        // main helper
+        out.write_all(b"\n\n").unwrap();
+        out.write_all(b".globl main\n").unwrap();
+        out.write_all(b"main:\n").unwrap();
+
+        // save old base pointer, and set new
+        out.write_all(b"    pushq %rbp\n").unwrap();
+        out.write_all(b"    movq %rsp, %rbp\n").unwrap();
+
+        // Which registers argc and argv are passed in
+        let argc = "rdi";
+        let argv = "rsi";
+
+        let globals = self.globals();
+        let first = globals
+            .iter()
+            .filter_map(|g| match g.node {
+                Globals::Function(ref f) => Some(f),
+                _ => None,
+            })
+            .next()
+            .unwrap();
+
+        let expected_args = first.parameters.len();
+
+        out.write_all(format!("    subq $1, %{argc}\n").as_bytes())
+            .unwrap();
+        out.write_all(format!("    cmpq ${expected_args}, %{argc}\n").as_bytes())
+            .unwrap();
+        out.write_all(b"    jne ABORT\n").unwrap();
+
+        if expected_args > 0 {
+            // Now we emit a loop to parse all parameters, and push them to the stack,
+            // in right-to-left order
+
+            // First move the argv pointer to the vert rightmost parameter
+            out.write_all(format!("    addq ${}, %{}\n", expected_args * 8, argv).as_bytes())
+                .unwrap();
+
+            // We use rcx as a counter, starting at the number of arguments
+            out.write_all(format!("    movq %{}, %rcx\n", argc).as_bytes())
+                .unwrap();
+            // A loop to parse all parameters
+            out.write_all(b"PARSE_ARGV:\n").unwrap();
+            // push registers to caller save them
+            out.write_all(format!("    pushq %{}\n", argv).as_bytes())
+                .unwrap();
+            out.write_all(b"    pushq %rcx\n").unwrap();
+
+            // Now call strtol to parse the argument
+            // 1st argument, the char *
+            out.write_all(format!("    movq (%{}), %rdi\n", argv).as_bytes())
+                .unwrap();
+            // 2nd argument, a null pointer
+            out.write_all(b"    movq $0, %rsi\n").unwrap();
+            //3rd argument, we want base 10
+            out.write_all(b"    movq $10, %rdx\n").unwrap();
+            out.write_all(b"    call strtol\n").unwrap();
+
+            // Restore caller saved registers
+            out.write_all(b"    popq %rcx\n").unwrap();
+            out.write_all(format!("    popq %{}\n", argv).as_bytes())
+                .unwrap();
+            // Store the parsed argument on the stack
+            out.write_all(b"    pushq %rax\n").unwrap();
+
+            // Point to the previous char*
+            out.write_all(format!("    subq $8, %{}\n", argv).as_bytes())
+                .unwrap();
+            // Loop uses RCX as a counter automatically
+            out.write_all(b"    loop PARSE_ARGV\n").unwrap();
+
+            assert!(expected_args <= REGISTERS.len());
+            const REGISTERS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
+            // Now, pop up to 6 arguments into registers instead of stack
+            for i in 0..expected_args {
+                // this will also panic on too many arguments
+                out.write_all(format!("    popq %{}\n", REGISTERS[i]).as_bytes())
+                    .unwrap();
+            }
+        }
+
+        out.write_all(format!("    call fun_{}\n", first.name.name).as_bytes())
+            .unwrap();
+        // Move the return value of the function into RDI
+        out.write_all(b"    movq %rax, %rdi\n").unwrap();
+        // Exit with the return value as exit code
+        out.write_all(b"    call exit\n").unwrap();
+
         const FOOTER: &[u8] = br#"
-.globl main
-main:
-    pushq %rbp
-    movq %rsp, %rbp
-    subq $1, %rdi
-    cmpq $2, %rdi
-    jne ABORT
-    addq $16, %rsi
-    movq %rdi, %rcx
-PARSE_ARGV:
-    pushq %rsi
-    pushq %rcx
-    movq (%rsi), %rdi
-    movq $0, %rsi
-    movq $10, %rdx
-    call strtol
-    popq %rcx
-    popq %rsi
-    pushq %rax
-    subq $8, %rsi
-    loop PARSE_ARGV
-    popq %rdi
-    popq %rsi
-    call fun_main
-    movq %rax, %rdi
-    call exit
+
 ABORT:
     leaq errout(%rip), %rdi
     call puts
@@ -241,7 +295,7 @@ ABORT:
     }
 }
 
-fn compile_body(function: &Function, _globals: &HashMap<String, GlobalSymbol>) -> String {
+fn compile_body(function: &Function, _globals: &[GlobalSymbol]) -> String {
     let block = &function.block;
 
     let statement_lists = block.children.iter().filter_map(|c| match c {
@@ -254,7 +308,6 @@ fn compile_body(function: &Function, _globals: &HashMap<String, GlobalSymbol>) -
     let mut out = String::new();
 
     for st in statements {
-        dbg!(&st);
         out += &match st {
             Statement::Assignment(a) => a.compile(function),
             Statement::Print(p) => p.compile(function),
