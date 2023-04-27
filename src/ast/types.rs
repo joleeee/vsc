@@ -117,10 +117,7 @@ impl Block {
 
         let statements = statement_list.flat_map(|decls| decls.iter());
 
-        let blocks = statements.filter_map(|statement| match statement {
-            Statement::Block(b) => Some(b),
-            _ => None,
-        });
+        let blocks = statements.flat_map(|s| s.clone().extract_blocks_recursive());
 
         for b in blocks {
             vars.extend(b.recursive_vars());
@@ -438,6 +435,33 @@ pub enum Statement {
     Block(Block),
     Return(ReturnStatement),
     While(WhileStatement),
+}
+
+impl Statement {
+    pub fn extract_blocks_recursive(self) -> Vec<Block> {
+        match self {
+            Statement::If(i) => {
+                let mut output = vec![];
+
+                for b in i.statement.extract_blocks_recursive() {
+                    output.push(b);
+                }
+
+                if let Some(statement) = i.else_statement {
+                    for b in statement.extract_blocks_recursive() {
+                        output.push(b);
+                    }
+                }
+
+                output
+            }
+            Statement::Block(b) => vec![b],
+            Statement::While(w) => vec![w.statement],
+            Statement::Return(_) => vec![], // return only has an expression
+            Statement::Assignment(_) => vec![], // assignment only has an expression
+            Statement::Print(_) => vec![], // print can technically have anything (Node) but it would crash
+        }
+    }
 }
 
 impl Compilable for Statement {
