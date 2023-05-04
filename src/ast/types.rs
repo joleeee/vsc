@@ -685,7 +685,7 @@ pub struct BreakStatement {
 impl BreakStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
         emit!("// BREAK (todo)").compile(out);
-        //todo!("BREAK");
+        todo!("BREAK");
     }
 }
 
