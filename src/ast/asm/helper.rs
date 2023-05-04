@@ -1,5 +1,6 @@
 use std::io::Write;
 
+#[must_use = "Helper must be compiled"]
 pub enum Helper {
     Label(String),
     Jmp(String),
