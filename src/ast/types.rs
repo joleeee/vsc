@@ -142,6 +142,7 @@ impl Block {
                 Statement::Block(b) => b.compile(function, out),
                 Statement::Return(r) => r.compile(function, out),
                 Statement::While(w) => w.compile(function, out),
+                Statement::Break(b) => b.compile(function, out),
             }
         }
     }
@@ -417,7 +418,7 @@ pub enum Node {
     Relation(Relation),
     IfStatement(IfStatement),
     WhileStatement(WhileStatement),
-    BreakStatement,
+    BreakStatement(BreakStatement),
 }
 
 #[derive(Debug, Clone)]
@@ -428,6 +429,7 @@ pub enum Statement {
     Block(Block),
     Return(ReturnStatement),
     While(WhileStatement),
+    Break(BreakStatement),
 }
 
 impl Statement {
@@ -453,6 +455,7 @@ impl Statement {
             Statement::Return(_) => vec![], // return only has an expression
             Statement::Assignment(_) => vec![], // assignment only has an expression
             Statement::Print(_) => vec![], // print can technically have anything (Node) but it would crash
+            Statement::Break(_) => vec![], // return does not contain any statements
         }
     }
 }
@@ -466,6 +469,7 @@ impl Compilable for Statement {
             Statement::Block(b) => b.compile(function, out),
             Statement::Return(r) => r.compile(function, out),
             Statement::While(w) => w.compile(function, out),
+            Statement::Break(b) => b.compile(function, out),
         }
     }
 }
@@ -486,6 +490,7 @@ impl TryFrom<Node> for Statement {
             Node::Block(s) => Ok(Self::Block(s)),
             Node::ReturnStatement(s) => Ok(Self::Return(s)),
             Node::WhileStatement(w) => Ok(Self::While(w)),
+            Node::BreakStatement(b) => Ok(Self::Break(b)),
             _ => Err(NodeExtractError::Unexpected(value)),
         }
     }
@@ -637,6 +642,18 @@ impl WhileStatement {
 
         // and when done, continue:
         label!("WHILE_DONE{nonce}").compile(out);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BreakStatement {
+    somevar: (),
+}
+
+impl BreakStatement {
+    pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+        //emit!("// BREAK (todo)").compile(out);
+        todo!();
     }
 }
 
@@ -959,7 +976,7 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
                 statement,
             })
         }
-        "BREAK_STATEMENT" => Node::BreakStatement,
+        "BREAK_STATEMENT" => Node::BreakStatement(BreakStatement { somevar: () }),
         _ => panic!("Unknown type {}", name),
     };
 }
