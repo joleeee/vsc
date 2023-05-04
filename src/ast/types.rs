@@ -630,7 +630,7 @@ impl IfStatement {
         }
 
         // end label
-        label!("{}", LabelNumber::next().as_if_end()).compile(out);
+        label!("{}", label.as_if_end()).compile(out);
     }
 }
 
