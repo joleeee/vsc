@@ -128,11 +128,7 @@ impl Statement {
                 i.statement.propagate_break_label(label);
             }
             Statement::Block(b) => b.propagate_break_label(label),
-            Statement::Return(_) => todo!(),
-            Statement::Break(b) => {
-                eprintln!("Propagated.");
-                b.while_label = Some(label)
-            }
+            Statement::Break(b) => b.while_label = Some(label),
 
             // stop, because it's already been marked by something closer
             Statement::While(_) => (),
@@ -140,6 +136,7 @@ impl Statement {
             // cant contain a break (in any meaningful way at least)
             Statement::Print(_) => (),
             Statement::Assignment(_) => (),
+            Statement::Return(_) => (),
         }
     }
 }
@@ -721,7 +718,7 @@ pub struct BreakStatement {
 }
 
 impl BreakStatement {
-    pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
+    pub fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
         jmp!("{} // BREAK", self.while_label.unwrap().as_while_done()).compile(out);
     }
 }
