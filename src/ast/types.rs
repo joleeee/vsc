@@ -5,6 +5,8 @@ use crate::{call, emit, jmp, label, leaq, movq, xorq};
 use super::{asm::Helper, Field};
 
 static mut LABEL_COUNTER: usize = 0;
+
+#[derive(Debug, Clone)]
 struct LabelNumber(usize);
 
 impl LabelNumber {
@@ -594,13 +596,12 @@ pub struct IfStatement {
     condition: Relation,
     statement: Box<Statement>,
     else_statement: Option<Box<Statement>>,
+    label: LabelNumber,
 }
 impl IfStatement {
     fn compile<W: Write>(&self, function: &Function, out: &mut W) {
         emit!("").compile(out);
         emit!("// if statement").compile(out);
-
-        let label = LabelNumber::next();
 
         self.condition.compile(function, out);
 
@@ -614,23 +615,23 @@ impl IfStatement {
 
         // jump to else, if condition failed (or end if there is no else)
         let fail_label = match &self.else_statement {
-            Some(_) => label.as_if_else(),
-            None => label.as_if_end(),
+            Some(_) => self.label.as_if_else(),
+            None => self.label.as_if_end(),
         };
         emit!("{inverse_instruction} {fail_label}").compile(out);
 
         // otherwise run body
         self.statement.compile(function, out);
-        jmp!("{}", label.as_if_end()).compile(out);
+        jmp!("{}", self.label.as_if_end()).compile(out);
 
         // compile else if it exists
         if let Some(else_statement) = &self.else_statement {
-            label!("{}", label.as_if_else()).compile(out);
+            label!("{}", self.label.as_if_else()).compile(out);
             else_statement.compile(function, out);
         }
 
         // end label
-        label!("{}", label.as_if_end()).compile(out);
+        label!("{}", self.label.as_if_end()).compile(out);
     }
 }
 
@@ -638,13 +639,12 @@ impl IfStatement {
 pub struct WhileStatement {
     condition: Relation,
     statement: Block,
+    label: LabelNumber,
 }
 impl WhileStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
         emit!("").compile(out);
         emit!("// while statement").compile(out);
-
-        let label = LabelNumber::next();
 
         let inverse_instruction = match self.condition.operator {
             '>' => "jle",
@@ -654,7 +654,7 @@ impl WhileStatement {
             _ => todo!("unknown operator {}", self.condition.operator),
         };
 
-        label!("{}", label.as_while_start()).compile(out);
+        label!("{}", self.label.as_while_start()).compile(out);
 
         // should end up with a cmp
         self.condition.compile(function, out);
@@ -662,7 +662,7 @@ impl WhileStatement {
         // jump to end if condition failed
         emit!(
             "{inverse_instruction} {while_done}",
-            while_done = label.as_while_done()
+            while_done = self.label.as_while_done()
         )
         .compile(out);
 
@@ -670,10 +670,10 @@ impl WhileStatement {
         self.statement.compile(function, out);
 
         // then jump up again
-        jmp!("{}", label.as_while_start()).compile(out);
+        jmp!("{}", self.label.as_while_start()).compile(out);
 
         // and when done, continue:
-        label!("{}", label.as_while_done()).compile(out);
+        label!("{}", self.label.as_while_done()).compile(out);
     }
 }
 
@@ -916,10 +916,13 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
             let else_statement: Option<Statement> =
                 args.get(2).map(|v| v.clone().try_into().unwrap());
 
+            let label = LabelNumber::next();
+
             Node::IfStatement(IfStatement {
                 condition: relation,
                 statement: Box::new(statement),
                 else_statement: else_statement.map(Box::new),
+                label,
             })
         }
         "STATEMENT_LIST" => {
@@ -1002,10 +1005,12 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         "WHILE_STATEMENT" => {
             let condition: Relation = args[0].clone().try_into().unwrap();
             let statement: Block = args[1].clone().try_into().unwrap();
+            let label = LabelNumber::next();
 
             Node::WhileStatement(WhileStatement {
                 condition,
                 statement,
+                label,
             })
         }
         "BREAK_STATEMENT" => Node::BreakStatement(BreakStatement { somevar: () }),
