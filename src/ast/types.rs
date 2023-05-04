@@ -6,8 +6,8 @@ use super::{asm::Helper, Field};
 
 static mut LABEL_COUNTER: usize = 0;
 
-#[derive(Debug, Clone)]
-struct LabelNumber(usize);
+#[derive(Debug, Clone, Copy)]
+pub struct LabelNumber(usize);
 
 impl LabelNumber {
     fn next() -> Self {
@@ -120,7 +120,45 @@ pub struct ArrayIndexing {
 pub struct Block {
     pub children: Vec<BlockChild>,
 }
+
+impl Statement {
+    pub fn propagate_break_label(&mut self, label: LabelNumber) {
+        match self {
+            Statement::If(i) => {
+                i.statement.propagate_break_label(label);
+            }
+            Statement::Block(b) => b.propagate_break_label(label),
+            Statement::Return(_) => todo!(),
+            Statement::Break(b) => {
+                eprintln!("Propagated.");
+                b.while_label = Some(label)
+            }
+
+            // stop, because it's already been marked by something closer
+            Statement::While(_) => (),
+
+            // cant contain a break (in any meaningful way at least)
+            Statement::Print(_) => (),
+            Statement::Assignment(_) => (),
+        }
+    }
+}
+
 impl Block {
+    pub fn propagate_break_label(&mut self, label: LabelNumber) {
+        for ch in self.children.iter_mut() {
+            match ch {
+                BlockChild::StatementList(statements) => {
+                    for s in statements {
+                        s.propagate_break_label(label);
+                    }
+                }
+                BlockChild::DeclarationList(_) => (),
+                BlockChild::ReturnStatement(_) => (),
+            }
+        }
+    }
+
     /// vars which are declared directly inside this block
     pub fn direct_vars(&self) -> Vec<Identifier> {
         let declaration_lists = self.children.iter().filter_map(|c| match c {
@@ -679,13 +717,12 @@ impl WhileStatement {
 
 #[derive(Debug, Clone)]
 pub struct BreakStatement {
-    somevar: (),
+    while_label: Option<LabelNumber>,
 }
 
 impl BreakStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
-        emit!("// BREAK (todo)").compile(out);
-        todo!("BREAK");
+        jmp!("{} // BREAK", self.while_label.unwrap().as_while_done()).compile(out);
     }
 }
 
@@ -1004,8 +1041,11 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
         }
         "WHILE_STATEMENT" => {
             let condition: Relation = args[0].clone().try_into().unwrap();
-            let statement: Block = args[1].clone().try_into().unwrap();
+            let mut statement: Block = args[1].clone().try_into().unwrap();
             let label = LabelNumber::next();
+
+            // propegate label down to break statements
+            statement.propagate_break_label(label);
 
             Node::WhileStatement(WhileStatement {
                 condition,
@@ -1013,7 +1053,7 @@ pub fn generate_node_good(e: super::Entry, args: Vec<Node>) -> Node {
                 label,
             })
         }
-        "BREAK_STATEMENT" => Node::BreakStatement(BreakStatement { somevar: () }),
+        "BREAK_STATEMENT" => Node::BreakStatement(BreakStatement { while_label: None }),
         _ => panic!("Unknown type {}", name),
     };
 }
