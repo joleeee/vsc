@@ -625,12 +625,12 @@ impl IfStatement {
 
         // compile else if it exists
         if let Some(else_statement) = &self.else_statement {
-            label!("{}", label.as_if_else());
+            label!("{}", label.as_if_else()).compile(out);
             else_statement.compile(function, out);
         }
 
         // end label
-        label!("{}", LabelNumber::next().as_if_end());
+        label!("{}", LabelNumber::next().as_if_end()).compile(out);
     }
 }
 
@@ -684,8 +684,8 @@ pub struct BreakStatement {
 
 impl BreakStatement {
     pub fn compile<W: Write>(&self, function: &Function, out: &mut W) {
-        //emit!("// BREAK (todo)").compile(out);
-        todo!();
+        emit!("// BREAK (todo)").compile(out);
+        //todo!("BREAK");
     }
 }
 
