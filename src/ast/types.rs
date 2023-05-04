@@ -4,6 +4,34 @@ use crate::{call, emit, jmp, label, leaq, movq, xorq};
 
 use super::{asm::Helper, Field};
 
+static mut LABEL_COUNTER: usize = 0;
+struct LabelNumber(usize);
+
+impl LabelNumber {
+    fn next() -> Self {
+        unsafe {
+            LABEL_COUNTER += 1;
+            LabelNumber(LABEL_COUNTER)
+        }
+    }
+
+    pub fn as_if_end(&self) -> String {
+        format!("IF_END{}", self.0)
+    }
+
+    pub fn as_if_else(&self) -> String {
+        format!("IF_ELSE{}", self.0)
+    }
+
+    pub fn as_while_start(&self) -> String {
+        format!("WHILE_START{}", self.0)
+    }
+
+    pub fn as_while_done(&self) -> String {
+        format!("WHILE_DONE{}", self.0)
+    }
+}
+
 pub trait Compilable {
     fn compile<W: Write>(&self, function: &Function, out: &mut W);
 }
@@ -572,7 +600,7 @@ impl IfStatement {
         emit!("").compile(out);
         emit!("// if statement").compile(out);
 
-        let nonce = rand::random::<u16>();
+        let label = LabelNumber::next();
 
         self.condition.compile(function, out);
 
@@ -586,23 +614,23 @@ impl IfStatement {
 
         // jump to else, if condition failed (or end if there is no else)
         let fail_label = match &self.else_statement {
-            Some(_) => format!("IF_ELSE{}", nonce),
-            None => format!("IF_END{}", nonce),
+            Some(_) => label.as_if_else(),
+            None => label.as_if_end(),
         };
         emit!("{inverse_instruction} {fail_label}").compile(out);
 
         // otherwise run body
         self.statement.compile(function, out);
-        jmp!("IF_END{nonce}").compile(out);
+        jmp!("{}", label.as_if_end()).compile(out);
 
         // compile else if it exists
         if let Some(else_statement) = &self.else_statement {
-            label!("IF_ELSE{nonce}").compile(out);
+            label!("{}", label.as_if_else());
             else_statement.compile(function, out);
         }
 
         // end label
-        label!("IF_END{nonce}").compile(out);
+        label!("{}", LabelNumber::next().as_if_end());
     }
 }
 
@@ -616,7 +644,7 @@ impl WhileStatement {
         emit!("").compile(out);
         emit!("// while statement").compile(out);
 
-        let nonce = rand::random::<u16>();
+        let label = LabelNumber::next();
 
         let inverse_instruction = match self.condition.operator {
             '>' => "jle",
@@ -626,22 +654,26 @@ impl WhileStatement {
             _ => todo!("unknown operator {}", self.condition.operator),
         };
 
-        label!("WHILE_START{nonce}").compile(out);
+        label!("{}", label.as_while_start()).compile(out);
 
         // should end up with a cmp
         self.condition.compile(function, out);
 
         // jump to end if condition failed
-        emit!("{inverse_instruction} WHILE_DONE{nonce}").compile(out);
+        emit!(
+            "{inverse_instruction} {while_done}",
+            while_done = label.as_while_done()
+        )
+        .compile(out);
 
         // otherwise, run the body
         self.statement.compile(function, out);
 
         // then jump up again
-        jmp!("WHILE_START{nonce}").compile(out);
+        jmp!("{}", label.as_while_start()).compile(out);
 
         // and when done, continue:
-        label!("WHILE_DONE{nonce}").compile(out);
+        label!("{}", label.as_while_done()).compile(out);
     }
 }
 
