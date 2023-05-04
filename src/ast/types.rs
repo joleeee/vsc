@@ -725,15 +725,15 @@ impl Relation {
     // cmpq the two expressions
     fn compile<W: Write>(&self, _function: &Function, out: &mut W) {
         self.left.compile(out);
-        out.write_all(b"    pushq %rax\n").unwrap();
+        emit!("pushq %rax").compile(out);
 
         self.right.compile(out);
-        out.write_all(b"    popq %rdi\n").unwrap();
+        emit!("popq %rdi").compile(out);
 
         // rdi: left
         // rax: right
 
-        out.write_all(b"    cmpq %rax, %rdi\n").unwrap();
+        emit!("cmpq %rax, %rdi").compile(out);
     }
 }
 
